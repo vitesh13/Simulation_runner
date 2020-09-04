@@ -13,6 +13,7 @@ import matplotlib.ticker as ticker
 from matplotlib.font_manager import FontProperties
 import pandas as pd
 import numpy as np
+import math
 import h5py
 
 class Multi_stand_runner():
@@ -56,7 +57,7 @@ class Multi_stand_runner():
       folder where data gets stored.
     """
     os.chdir('/nethome/v.shah/{}/'.format(simulation_folder))
-    subprocess.run(shlex.split('mkdir nethome/v.shah/{}/{}_stand'.format(sample_folder,stand)))
+    os.mkdir('/nethome/v.shah/{}/{}_stand/'.format(sample_folder,stand))
     storage = '{}/{}_stand/'.format(sample_folder,stand)
     copy(job_file, '/nethome/v.shah/{}/'.format(storage))
     copy(restart_file, '/nethome/v.shah/{}/'.format(storage))
@@ -202,6 +203,36 @@ class Multi_stand_runner():
     PyPlot.legend()
     fig.savefig('/nethome/v.shah/{}/RXfractions.png'.format(sample_folder),dpi=300) 
 
+  def add_nuclei_info(self,sample_folder,job_file,casipt,stand):
+    """
+    Add nucleation tag to the data for visualization of the nuclei.
+
+    Parameters
+    ----------
+    sample_folder : str
+      Name of the sample folder.
+    job_file : str
+      Name of the output file (2nd stand and so on).
+    casipt : str
+      Name of the casipt file with nucleation info.
+    stand : int
+      Number of the stand.
+    
+    """
+    import damask
+    d = damask.Result('/nethome/v.shah/{}/{}_stand/{}'.format(sample_folder,stand,job_file)) 
+    rex_array = np.loadtxt(casipt,dtype=int,usecols=(1))
+    total_cells = np.shape(d.read_dataset([d.get_dataset_location('grain_rotation')[-1]]))[0] 
+    nuclei_array = np.zeros(total_cells)
+   
+    for i in rex_array:
+      nuclei_array[i] = 1 
+
+    path = d.groups_with_datasets('rho_mob')
+    with h5py.File(d.fname,'a') as f:
+      for i in range(len(path)):
+        f[path[i] + '/Nucleation_tag'] = nuclei_array
+
 
 class Grain_rotation_history():
   """ 
@@ -213,6 +244,7 @@ class Grain_rotation_history():
   def __init__(self,current_file):
     """ Opens the HDF5 file in which rotation is to be calculated."""
 
+    import damask
     self.current_file = damask.Result(current_file) 
 
   def get_regridded_coords(self,regridded_file):
@@ -256,6 +288,7 @@ class Grain_rotation_history():
       txt file containing results to be used for CA.
     """
    
+    import damask
     self.first_grain_rotation = np.loadtxt(remesh_file,skiprows=1,usecols=(4))
     
     # get rotation at all recorded increments and store them in an array ( no of cols = no of increments)
@@ -264,7 +297,8 @@ class Grain_rotation_history():
     self.second_grain_rotation = np.zeros((len_second_rotation,num_second_rotation))
     for i in range(num_second_rotation):
       self.second_grain_rotation[:,i] = self.current_file.read_dataset\
-                                            ([self.current_file.get_dataset_location('grain_rotation')[i]])
+                                            ([self.current_file.get_dataset_location('grain_rotation')[i]])\
+                                             .reshape(np.shape(self.second_grain_rotation[:,0]))
 
 
   def get_nucleation_info(self,casipt_file):
@@ -294,6 +328,7 @@ class Grain_rotation_history():
       Name of output file containing nucleation info.
     """
     
+    import damask
     self.first_grain_rotation[self.get_nucleation_info(casipt_file).astype(np.int32)[:,0]] = 0.0
     
     for i in range(np.shape(self.second_grain_rotation)[1]):
