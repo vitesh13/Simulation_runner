@@ -6,12 +6,16 @@
 
 import subprocess, signal, time, os
 
-cmd = "DAMASK_spectral -l tensionX.load -g 20grains16x16x16.geom"
+cmd = "DAMASK_spectral -l tensionX.load -g 20grains16x16x16.geom > check.txt"
 
 P = subprocess.Popen(cmd,shell=True)
 
 while P.poll() != 0:
-   time.sleep(5)
+   time.sleep(10)
    os.kill(P.pid, signal.SIGSTOP)
    print("doing something")
+   d = damask.Result('20grains16x16x16_tensionX.hdf5')
+   path = d.get_dataset_location('F')[-1]
+   f = h5py.File('20grains16x16x16_tensionX.hdf5')
+   print('values':f[path][0,:,:])
    os.kill(P.pid, signal.SIGCONT)
