@@ -32,6 +32,7 @@ class Multi_stand_runner():
     self.config_file = 'material.config'
     self.extra_config = 'ho_cr_ph.config'
     self.job_file = '{}_{}.hdf5'.format(self.geom_file.split('.')[0],self.load_file.split('.')[0])
+    self.sta_file = '{}_{}.sta'.format(self.geom_file.split('.')[0],self.load_file.split('.')[0])
     self.restart_file = '{}_{}_0.hdf5'.format(self.geom_file.split('.')[0],self.load_file.split('.')[0])
 
 # run simulations to get the files
@@ -63,6 +64,33 @@ class Multi_stand_runner():
     
     copyfile(new_geom,'/nethome/v.shah/{}/{}'.format(simulation_folder,old_geom))
     copyfile(new_restart,'/nethome/v.shah/{}/{}'.format(simulation_folder,old_restart))
+
+  def copy_CA_output(self,path_to_CA,sample_folder,stand,time):
+    """
+    Copies the important data output from the CA code for safekeeping.
+
+    Parameters
+    ----------
+    path_to_CA : str
+      Path of the folder where the CA output is stored.
+    sample_folder : str
+      Path of the sample folder
+    stand : integer
+      Stand after which CA is run
+    time : float
+      times for which CA is run
+    """
+ 
+    os.chdir(path_to_CA)
+    os.mkdir('/nethome/v.shah/{}/{}_stand/CA_files/{}'.format(sample_folder,stand,time))
+    storage = '{}/{}_stand/CA_files/{}'.format(sample_folder,stand,time)
+    copy('resMDRX..ang','/nethome/v.shah/{}'.format(storage))
+    copy('resMDRX._rho.txt','/nethome/v.shah/{}'.format(storage))
+    copy('resMDRX.3D.geom','/nethome/v.shah/{}'.format(storage))
+    copy('resMDRX.final.map.xy.dat','/nethome/v.shah/{}'.format(storage))
+    copy('resMDRX.fractions.txt','/nethome/v.shah/{}'.format(storage))
+    copy('resMDRX.MDRX.txt','/nethome/v.shah/{}'.format(storage))
+    copy('resMDRX.texture_MDRX.txt','/nethome/v.shah/{}'.format(storage))
 
 # modify the load file after CA
   def modify_load_file(self,load_file,config_file):
@@ -102,7 +130,7 @@ class Multi_stand_runner():
     simulation = subprocess.run(shlex.split('screen -dm bash -c "DAMASK_spectral -l {} -g {} -r {} > check.txt"'.format(load_file,geom_file,restart_inc)))
 
 # copy output files to avoid issues
-  def copy_output(self,stand,simulation_folder,sample_folder,job_file,restart_file,geom_file,load_file,config_file,extra_config):
+  def copy_output(self,stand,simulation_folder,sample_folder,job_file,restart_file,geom_file,load_file,config_file,extra_config,sta_file,make_dir = True):
   
     """ 
     Copies the output files to a safe folder to avoid any issues and to have a backup. 
@@ -111,20 +139,26 @@ class Multi_stand_runner():
     ----------
     stand : int
       stand at which deformation happens.
+    simulation_folder : str
+      Folder where the simulation was done. 
     sample_folder : string
       folder where data gets stored.
+    make_dir : bool
+      Default true. False if you dont to make directory.
     """
     os.chdir('/nethome/v.shah/{}/'.format(simulation_folder))
-    os.mkdir('/nethome/v.shah/{}/{}_stand/'.format(sample_folder,stand))
+    if make_dir:
+      os.mkdir('/nethome/v.shah/{}/{}_stand/'.format(sample_folder,stand))
     storage = '{}/{}_stand/'.format(sample_folder,stand)
     copy(job_file, '/nethome/v.shah/{}/'.format(storage))
+    copy(sta_file, '/nethome/v.shah/{}/'.format(storage))
     copy(restart_file, '/nethome/v.shah/{}/'.format(storage))
     copy(geom_file, '/nethome/v.shah/{}/'.format(storage))
     copy(load_file, '/nethome/v.shah/{}/'.format(storage))
     copy(config_file, '/nethome/v.shah/{}/'.format(storage))
     copy(extra_config, '/nethome/v.shah/{}/'.format(storage))
 
-  def save_rawfiles(self,stand,simulation_folder,sample_folder,job_file,restart_file,geom_file,load_file,config_file,extra_config):
+  def save_rawfiles(self,stand,simulation_folder,sample_folder,job_file,restart_file,geom_file,load_file,config_file,extra_config,sta_file):
     """
     Keeps the raw unprocessed HDF5 files (in case processing goes wrong).
     Parameters
@@ -138,6 +172,7 @@ class Multi_stand_runner():
     os.mkdir('/nethome/v.shah/{}/{}_stand/raw_files/'.format(sample_folder,stand))
     storage = '{}/{}_stand/raw_files'.format(sample_folder,stand)
     copy(job_file, '/nethome/v.shah/{}/'.format(storage))
+    copy(sta_file, '/nethome/v.shah/{}/'.format(storage))
     copy(restart_file, '/nethome/v.shah/{}/'.format(storage))
     copy(geom_file, '/nethome/v.shah/{}/'.format(storage))
     copy(load_file, '/nethome/v.shah/{}/'.format(storage))
@@ -202,7 +237,7 @@ class Multi_stand_runner():
     subprocess.run(shlex.split('regrid -g {} -l {}'.format(geom_file,load_file)))
     
 # modify the CA xml file
-  def modify_CA_setting(self,T):
+  def modify_CA_setting(self,filename,T,grid,delta_t,dx,start_file,basefn):
     """
     Modifies the XML file to run the CA code.
 
@@ -232,11 +267,24 @@ class Multi_stand_runner():
     root.find('nx').text = str(grid[0])
     root.find('ny').text = str(grid[1])
     root.find('nz').text = str(grid[2])
+    root.find('deltats').text = '{:.8f}'.format(delta_t)
     root.find('dx').text = '{:.8f}'.format(dx)
     root.find('startfile_fn').text = start_file
     root.find('basefn').text = basefn
+    tree.write(filename)
     
-    
+  def perform_CA(self,input_settings):
+    """
+    Starts a CA simulation.
+ 
+    Parameters
+    ----------
+    input_settings : str
+      Name of the input xml file for CA
+    """
+   
+    os.chdir('/nethome/v.shah/casipt/casipt/')
+    subprocess.run(shlex.split('bin/casipt input/{}'.format(input_settings)))  
 
 
 
@@ -299,6 +347,34 @@ class Multi_stand_runner():
     PyPlot.legend()
     fig.savefig('/nethome/v.shah/{}/Multi_stand_stress_strain.png'.format(sample_folder),dpi=300)
 
+
+  def data_for_stress_strain(self,stands,sample_folder,job_file):
+    """
+    Calculation for data of stress strain curves of multi-stand rolling.
+
+    Parameters
+    ----------
+    stands : int
+      Number of stands being considered in the simulation.
+    sample_folder : str
+      Name of the sample folder.
+    job_file : str
+      Name of the output file.
+
+    """
+    import damask
+    fig = PyPlot.figure()
+    max_strain = np.zeros(1) 
+    for i in range(1,stands+1):
+
+      d = damask.Result('/nethome/v.shah/{}/{}_stand/{}'.format(sample_folder,i,job_file))
+      d.add_Cauchy()
+      d.add_strain_tensor()
+      d.add_Mises('sigma')
+      d.add_Mises('epsilon_V^0.0(F)')
+      
+      d.add_calculation('avg_sigma',"np.average(#sigma_vM#)")
+      d.add_calculation('avg_epsilon',"np.average(#epsilon_V^0.0(F)_vM#)")
 
   def plot_fraction(self,sample_folder):
     """
