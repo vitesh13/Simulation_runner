@@ -43,7 +43,7 @@ class Multi_stand_runner():
     copy(config_file,'/nethome/v.shah/{}/'.format(simulation_folder))  
     copy(extra_config,'/nethome/v.shah/{}/'.format(simulation_folder))  
     os.chdir('/nethome/v.shah/{}/'.format(simulation_folder))
-    cmd = 'DAMASK_spectral -l {} -g {} > check.txt'.format(load_file,geom_file)
+    cmd = 'screen -dm bash -c "DAMASK_spectral -l {} -g {} > check.txt"'.format(load_file,geom_file)
     p = subprocess.Popen(cmd,shell=True)
     while p.poll() == None:
       p.poll()
@@ -125,13 +125,25 @@ class Multi_stand_runner():
 
 # run restart simulation after CA
   def run_restart_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,extra_config,restart_inc):
+    """
+    Runs restart simulation after CA.
+
+    Parameters
+    ----------
+    restart_inc : int
+      Number at which restart will start.
+    """
     #os.chdir('/nethome/v.shah/{}/'.format(sample_folder))
     #copy(geom_file, '/nethome/v.shah/{}/'.format(simulation_folder))
     #copy(load_file,'/nethome/v.shah/{}/'.format(simulation_folder))  
     #copy(config_file,'/nethome/v.shah/{}/'.format(simulation_folder))  
     #copy(extra_config,'/nethome/v.shah/{}/'.format(simulation_folder))  
     os.chdir('/nethome/v.shah/{}/'.format(simulation_folder))
-    simulation = subprocess.run(shlex.split('screen -dm bash -c "DAMASK_spectral -l {} -g {} -r {} > check.txt"'.format(load_file,geom_file,restart_inc)))
+    cmd = 'screen -dm bash -c "DAMASK_spectral -l {} -g {} -r {} > check.txt"'.format(load_file,geom_file,restart_inc)
+    p = subprocess.Popen(cmd,shell=True)
+    while p.poll() == None:
+      p.poll()
+    return p.poll()
 
 # copy output files to avoid issues
   def copy_output(self,stand,simulation_folder,sample_folder,job_file,restart_file,geom_file,load_file,config_file,extra_config,sta_file,make_dir = True):
