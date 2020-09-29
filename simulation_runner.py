@@ -43,7 +43,11 @@ class Multi_stand_runner():
     copy(config_file,'/nethome/v.shah/{}/'.format(simulation_folder))  
     copy(extra_config,'/nethome/v.shah/{}/'.format(simulation_folder))  
     os.chdir('/nethome/v.shah/{}/'.format(simulation_folder))
-    simulation = subprocess.run(shlex.split('screen -dm bash -c "DAMASK_spectral -l {} -g {} > check.txt"'.format(load_file,geom_file)))
+    cmd = 'DAMASK_spectral -l {} -g {} > check.txt'.format(load_file,geom_file)
+    p = subprocess.Popen(cmd,shell=True)
+    while p.poll() == None:
+      p.poll()
+    return p.poll()
 
 # modify files after CA
   def copy_modified_files(self,new_geom,new_restart,old_geom,old_restart):
@@ -423,7 +427,11 @@ class Multi_stand_runner():
     path = d.groups_with_datasets('rho_mob')
     with h5py.File(d.fname,'a') as f:
       for i in range(len(path)):
-        f[path[i] + '/Nucleation_tag'] = nuclei_array
+        if d.groups_with_datasets('Nucleation_tag') == []:
+          f[path[i] + '/Nucleation_tag'] = nuclei_array
+        else:
+          data = f[path[i] + '/Nucleation_tag']
+          data[...] = nuclei_array
 
 
 class Grain_rotation_history():
@@ -504,7 +512,8 @@ class Grain_rotation_history():
     """
     
     nucleation_info = np.loadtxt(casipt_file, usecols=(1,3,5,7,9))
-    nucleation_info[:,2:5] = nucleation_info[:,2:5]*math.pi/180.0
+    if nucleation_info.shape[0] != 0:
+      nucleation_info[:,2:5] = nucleation_info[:,2:5]*math.pi/180.0
 
     return nucleation_info
 
@@ -521,7 +530,9 @@ class Grain_rotation_history():
     """
     
     import damask
-    self.first_grain_rotation[self.get_nucleation_info(casipt_file).astype(np.int32)[:,0]] = 0.0
+    print(self.get_nucleation_info(casipt_file).shape)
+    if self.get_nucleation_info(casipt_file).shape[0] != 0:
+      self.first_grain_rotation[self.get_nucleation_info(casipt_file).astype(np.int32)[:,0]] = 0.0
     
     for i in range(np.shape(self.second_grain_rotation)[1]):
       self.total_grain_rotation = self.first_grain_rotation.reshape(np.shape(self.second_grain_rotation)[0]) \
