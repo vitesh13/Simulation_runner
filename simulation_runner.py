@@ -43,7 +43,7 @@ class Multi_stand_runner():
     copy(config_file,'/nethome/v.shah/{}/'.format(simulation_folder))  
     copy(extra_config,'/nethome/v.shah/{}/'.format(simulation_folder))  
     os.chdir('/nethome/v.shah/{}/'.format(simulation_folder))
-    cmd = 'screen -dm bash -c "DAMASK_spectral -l {} -g {} > check.txt"'.format(load_file,geom_file)
+    cmd = 'DAMASK_spectral -l {} -g {} > check.txt'.format(load_file,geom_file)
     p = subprocess.Popen(cmd,shell=True)
     while p.poll() == None:
       p.poll()
@@ -91,7 +91,7 @@ class Multi_stand_runner():
     copy('resMDRX..ang','/nethome/v.shah/{}'.format(storage))
     copy('resMDRX._rho.txt','/nethome/v.shah/{}'.format(storage))
     copy('resMDRX.3D.geom','/nethome/v.shah/{}'.format(storage))
-    copy('resMDRX.final.map.xy.dat','/nethome/v.shah/{}'.format(storage))
+    #copy('resMDRX.final.map.xy.dat','/nethome/v.shah/{}'.format(storage))
     copy('resMDRX.fractions.txt','/nethome/v.shah/{}'.format(storage))
     copy('resMDRX.MDRX.txt','/nethome/v.shah/{}'.format(storage))
     copy('resMDRX.texture_MDRX.txt','/nethome/v.shah/{}'.format(storage))
@@ -139,7 +139,7 @@ class Multi_stand_runner():
     #copy(config_file,'/nethome/v.shah/{}/'.format(simulation_folder))  
     #copy(extra_config,'/nethome/v.shah/{}/'.format(simulation_folder))  
     os.chdir('/nethome/v.shah/{}/'.format(simulation_folder))
-    cmd = 'screen -dm bash -c "DAMASK_spectral -l {} -g {} -r {} > check.txt"'.format(load_file,geom_file,restart_inc)
+    cmd = 'DAMASK_spectral -l {} -g {} -r {} > check.txt'.format(load_file,geom_file,restart_inc)
     p = subprocess.Popen(cmd,shell=True)
     while p.poll() == None:
       p.poll()
@@ -558,5 +558,4 @@ class Grain_rotation_history():
       
 
     self.second_grain_rotation = self.current_file.read_dataset([self.current_file.get_dataset_location('grain_rotation')[-1]])
-
 
