@@ -139,6 +139,8 @@ class Multi_stand_runner():
     #copy(config_file,'/nethome/v.shah/{}/'.format(simulation_folder))  
     #copy(extra_config,'/nethome/v.shah/{}/'.format(simulation_folder))  
     os.chdir('/nethome/v.shah/{}/'.format(simulation_folder))
+    # save restart file at start in case you need to redo the simulation
+    copy('{}_{}_0.hdf5'.format(geom_file,load_file),'/nethome/v.shah/{}/{}_{}_0_old.hdf5'.format(simulation_folder,geom_file,load_file))
     cmd = 'DAMASK_spectral -l {} -g {} -r {} > check.txt'.format(load_file,geom_file,restart_inc)
     p = subprocess.Popen(cmd,shell=True)
     while p.poll() == None:
