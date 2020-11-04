@@ -26,13 +26,16 @@ import h5py
 cmd = "DAMASK_grid -l tensionX.yaml -g 20grains16x16x16.vtr"
 #f = open('check.txt','w')
 
-P = subprocess.Popen(cmd,stdout = subprocess.PIPE, stderr = subprocess.PIPE,shell=True)
+with open('check.txt','wb') as f:
+  P = subprocess.Popen(cmd,stdout = subprocess.PIPE, stderr = subprocess.PIPE,shell=True)
 
-while P.poll() is None:
-  r = re.compile(' increment 3 converged')
-  if re.search(r,P.stdout.readline(),decode('utf-8')):
-    print("hello")
-#  os.kill(P.pid+1,signal.SIGUSR1)
+  while P.poll() is None:
+    r = re.compile(' increment 3 converged')
+    for line in iter(P.stdout.readline, b''):
+      if re.search(r,P.stdout.readline().decode('utf-8')):
+        print("hello")
+        os.kill(P.pid+1,signal.SIGUSR1)
+      f.write(line)
 
 
 
