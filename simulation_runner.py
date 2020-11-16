@@ -439,12 +439,14 @@ class Multi_stand_runner():
     path = d.groups_with_datasets('rho_mob')
     with h5py.File(d.fname,'a') as f:
       for i in range(len(path)):
-        if d.groups_with_datasets('Nucleation_tag') == []:
-          f[path[i] + '/Nucleation_tag'] = nuclei_array
-        else:
+        try:
+          f[path[i] + '/Nucleation_tag'] != []
           data = f[path[i] + '/Nucleation_tag']
           data[...] = nuclei_array
-
+        except KeyError:
+          f[path[i] + '/Nucleation_tag'] = nuclei_array
+          
+          
 
 class Grain_rotation_history():
   """ 
