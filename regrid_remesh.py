@@ -70,7 +70,7 @@ class Remesh_for_CA():
     isElastic = False
     scale = 1.0
     grid = False 
-    os.chdir(folder)
+    os.chdir('/nethome/v.shah/{}/'.format(folder))
     geom_name = rgg.setting_util.remove_fileFormat(geom)
     load_name = rgg.setting_util.remove_fileFormat(load)
     isElastic = rgg.setting_util.set_elasticDeformation(isElastic)
@@ -162,11 +162,11 @@ class Remesh_for_CA():
     header_f = '%s %s\n'%(str(int(np.prod(rg.gridSeeds_regrid))),str(max(df['grain']))) #,str(max(df['grain']))
     
     output = '%s_%s'%(geom_name,load_name)
-    file_rg = os.path.join(folder,'postProc','%s_%s.txt'%(output,inc))
-    if not os.path.exists(os.path.join(folder,'postProc')):
-        os.makedirs(os.path.join(folder,'postProc'))
+    file_rg = '%s_%s.txt'%(output,inc)
+    if not os.path.exists(os.path.join('/nethome/v.shah',folder,'postProc')):
+        os.makedirs(os.path.join('/nethome/v.shah',folder,'postProc'))
     
-    with open(file_rg,'w') as f:
+    with open('postProc/'+file_rg,'w') as f:
         f.write(header_f)
         df.to_string(f,header=False,formatters=["{:.8f}".format,"{:.8f}".format,"{:.8f}".format, \
                                                 "{:.8f}".format,"{:.8f}".format,"{:.6E}".format, \
@@ -225,8 +225,9 @@ class Remesh_for_CA():
     
     #hdf.create_group('inc{}'.format(inc))
     print(inc_key)
+    return self.new_size,self.new_grid
 
-  def remesh_coords(self,filename,unit):
+  def remesh_coords(self,filename,unit,folder):
     """
     Remeshes the data to equidistant grid.
     
@@ -235,7 +236,11 @@ class Remesh_for_CA():
     filename : str 
       file path
     unit : float
+      Our units in comparison to DAMASK
+    folder : str
+      simulation folder
     """ 
+    os.chdir('/nethome/v.shah/{}/postProc'.format(folder))
     dx = np.min(self.new_size/self.new_grid)*1E-06
     print(dx)
     unit_scale = unit
@@ -278,4 +283,5 @@ class Remesh_for_CA():
     new_path     = os.path.join(dir_file,new_filename)
     np.savetxt(new_path,new_data,fmt = ' '.join(['%.10e']*3 + ['%i'] + ['%.10e']*6), \
                header='{} {}'.format(str(len(new_data)),str(int(np.max(data[:,3])))),comments='')
+    return nx,ny,nz
       
