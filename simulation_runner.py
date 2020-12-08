@@ -86,6 +86,8 @@ class Multi_stand_runner():
     """
  
     os.chdir(path_to_CA)
+    if not os.path.exists('/nethome/v.shah/{}/{}_stand/CA_files/'.format(sample_folder,stand)):
+      os.mkdir('/nethome/v.shah/{}/{}_stand/CA_files/'.format(sample_folder,stand))
     os.mkdir('/nethome/v.shah/{}/{}_stand/CA_files/{}'.format(sample_folder,stand,time))
     storage = '{}/{}_stand/CA_files/{}'.format(sample_folder,stand,time)
     copy('resMDRX..ang','/nethome/v.shah/{}'.format(storage))
