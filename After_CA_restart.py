@@ -37,8 +37,8 @@ class CASIPT_postprocessing():
 
     data_to_geom = []
     data_to_geom.append('{} header'.format(1))  #so that we can modify this later
-    data_to_geom.append('grid a {} b {} c {}'.format(*grid_size)
-    data_to_geom.append('size x {} y {} z {}'.format(*(grid_size*dx)) #give input that will kind of decide the spacing (like in DREAM3D)
+    data_to_geom.append('grid a {} b {} c {}'.format(*grid_size))
+    data_to_geom.append('size x {} y {} z {}'.format(*(grid_size*dx))) #give input that will kind of decide the spacing (like in DREAM3D)
     data_to_geom.append('origin x 0.0 y 0.0 z 0.0')
     data_to_geom.append('homogenization 1')
     
@@ -61,7 +61,7 @@ class CASIPT_postprocessing():
     
     for i,texture in enumerate(texture_data):
       data_to_geom.append('[Grain{:02d}]'.format(i+1))
-      data_to_geom.append('(gauss) phi1 {} Phi {} phi2 {} scatter 0.0 fraction 1.0'.format(*texture)
+      data_to_geom.append('(gauss) phi1 {} Phi {} phi2 {} scatter 0.0 fraction 1.0'.format(*texture))
 
     # calculating header length
     header_value = len(data_to_geom) - 1
@@ -76,6 +76,6 @@ class CASIPT_postprocessing():
       print(line)
     
     array = np.array(data_to_geom)
-    np.savetxt('test.geom',array,fmt='%s',newline='\n') 
+    np.savetxt('test1.geom',array,fmt='%s',newline='\n') 
 
 
