@@ -139,7 +139,6 @@ class CASIPT_postprocessing():
     for i in diff_values:
       if i != '1_omega_plastic':
         data_array = np.zeros((len(remeshed_coords),) + np.shape(hdf[i])[1:])
-        print(np.array(hdf[i]).shape)
         data_array[:] = np.array(hdf[i])[nbr_array]
         f[i] = data_array  
       else:
@@ -152,10 +151,8 @@ class CASIPT_postprocessing():
         ysize      = int(round(np.max(remeshed_coords[:,1])/(remeshed_coords[1,0] - remeshed_coords[0,0]))) #+ 1
         zsize      = int(round(np.max(remeshed_coords[:,2])/(remeshed_coords[1,0] - remeshed_coords[0,0]))) #+ 1
         totalsize  = int(xsize*ysize*zsize)
-        print(totalsize)
         data_array = np.zeros((totalsize,) + np.shape(hdf['/solver/' + i])[3:])
         input_data = np.array(hdf['/solver/' + i]).reshape(((np.prod(np.shape(np.array(hdf['/solver/' + i]))[0:3]),)+np.shape(np.array(hdf['/solver/' + i]))[3:]))
-        print(np.shape(data_array),np.shape(input_data))
         data_array[:] = input_data[nbr_array]
         data_array = data_array.reshape((zsize,ysize,xsize,) + np.shape(hdf['/solver/' + i])[3:])
         f['/solver/' + i] = data_array
