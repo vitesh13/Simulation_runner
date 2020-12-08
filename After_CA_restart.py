@@ -118,7 +118,7 @@ class CASIPT_postprocessing():
 
     f = h5py.File(file_name)
     
-    hdf = h5py.File(options.hdf[0])
+    hdf = h5py.File(hdf)
 
     const_values = ['C_minMaxAvg','C_volAvg','C_volAvgLastInc','F_aim','F_aimDot','F_aim_lastInc']
     
@@ -139,13 +139,12 @@ class CASIPT_postprocessing():
     for i in diff_values:
       if i != '1_omega_plastic':
         data_array = np.zeros((len(remeshed_coords),) + np.shape(hdf[i])[1:])
-        for count,point in enumerate(nbr_array):
-          data_array[count] = np.array(hdf[i][point])
+        print(np.array(hdf[i]).shape)
+        data_array[:] = np.array(hdf[i])[nbr_array]
         f[i] = data_array  
       else:
         data_array = np.zeros((len(remeshed_coords),) + np.shape(hdf['/constituent/' + i])[1:])
-        for count,point in enumerate(nbr_array):
-          data_array[count] = np.array(hdf['/constituent/' + i][point])
+        data_array[:] = np.array(hdf['/constituent/' + i])[nbr_array]
         f['/constituent/' + i] = data_array  
 
     for i in diff_values_1:
@@ -157,8 +156,7 @@ class CASIPT_postprocessing():
         data_array = np.zeros((totalsize,) + np.shape(hdf['/solver/' + i])[3:])
         input_data = np.array(hdf['/solver/' + i]).reshape(((np.prod(np.shape(np.array(hdf['/solver/' + i]))[0:3]),)+np.shape(np.array(hdf['/solver/' + i]))[3:]))
         print(np.shape(data_array),np.shape(input_data))
-        for count,point in enumerate(nbr_array):
-          data_array[count] = input_data[point]
+        data_array[:] = input_data[nbr_array]
         data_array = data_array.reshape((zsize,ysize,xsize,) + np.shape(hdf['/solver/' + i])[3:])
         f['/solver/' + i] = data_array
 
