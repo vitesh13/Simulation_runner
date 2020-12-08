@@ -9,11 +9,19 @@ class CASIPT_postprocessing():
   Class combining different scripts for CASIPT post-processing.
   
   """
-  def __init__(self):
-    """ Sets the files names and folder names."""
+  def __init__(self,CA_folder):
+    """
+    Sets the files names and folder names.
+
+    Parameters:
+    -----------
+    CA_folder : str
+      Path to the folder where CA results are stored.
+   
+    """
     
-    self.simulation_folder = 'DRX_sample_simulations'
-    self.CA_folder         = 'DRX_sample_simulations/Industrial_finishing_mill/1_stand/CA_files/1.0'
+    #self.simulation_folder = 'DRX_sample_simulations'
+    self.CA_folder         = CA_folder 
     self.CA_geom           = 'resMDRX.3D.geom'
 
   
@@ -76,6 +84,6 @@ class CASIPT_postprocessing():
       print(line)
     
     array = np.array(data_to_geom)
-    np.savetxt('test1.geom',array,fmt='%s',newline='\n') 
+    np.savetxt('test.geom',array,fmt='%s',newline='\n') 
 
 
