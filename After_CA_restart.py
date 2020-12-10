@@ -78,16 +78,18 @@ class CASIPT_postprocessing():
     header_value = len(data_to_geom) - 1
     data_to_geom[0] = '{} header'.format(header_value)
     geom_data = np.loadtxt('resMDRX.3D.geom',skiprows=1,usecols=(1))
-    numbers = geom_data + 1
+    numbers = geom_data.astype(int) + 1
+    numbers = numbers.reshape([grid_size[0],np.prod(grid_size[1:])],order='F').T
     #write numbers in geom file 
-    for i in numbers:
-      data_to_geom.append(int(i))
+    #for i in numbers:
+    #  data_to_geom.append(int(i))
     
     for line in data_to_geom:
       print(line)
     
-    array = np.array(data_to_geom)
-    np.savetxt('test.geom',array,fmt='%s',newline='\n') 
+    #array = np.array(data_to_geom)
+    #np.savetxt('test.geom',array,fmt='%s',newline='\n') 
+    np.savetxt('test.geom',numbers,fmt='%s',newline='\n',header='\n'.join(data_to_geom),comments='') 
 
   def findNeighbours(self,regrid,remesh,hdf):
     """
