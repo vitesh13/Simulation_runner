@@ -21,7 +21,9 @@ with open('check.txt','w') as f:
                os.kill(P.pid+1, signal.SIGSTOP)
                d = damask.Result('20grains16x16x16_tensionX.hdf5')
                print(d.get_dataset_location('F'))
+               os.kill(P.pid+1, signal.SIGUSR2)
                os.kill(P.pid+1, signal.SIGUSR1)
+               os.kill(P.pid+1, signal.SIGTERM)
                os.kill(P.pid+1, signal.SIGCONT)
     for line in record:
       f.write(line)
