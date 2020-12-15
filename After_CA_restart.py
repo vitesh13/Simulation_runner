@@ -5,7 +5,96 @@ import numpy as np
 import os
 from scipy import spatial
 import h5py
+from Fe_decomposition import Decompose
 
+def eulers_toR(eulers):
+  """
+  This function returns a rotation matrix from given euler angle
+  The rotation matrix would be the rotational part of the elastic deformation gradient
+  
+  """
+  r_matrix = np.zeros((3,3))
+  c1 = math.cos(eulers[0])
+  c2 = math.cos(eulers[1])
+  c3 = math.cos(eulers[2])
+  s1 = math.sin(eulers[0])
+  s2 = math.sin(eulers[1])
+  s3 = math.sin(eulers[2])
+
+  # copying from function eu2om in rotations.f90
+  r_matrix[0][0] =  c1*c3 - s1*c2*s3
+  r_matrix[0][1] =  s1*c3 + c1*s3*c2 
+  r_matrix[0][2] =  s3*s2
+
+  r_matrix[1][0] = -c1*s3 - s1*c3*c2 
+  r_matrix[1][1] = -s1*s3 + c1*c3*c2 
+  r_matrix[1][2] =  c3*s2
+
+  r_matrix[2][0] =  s1*s2
+  r_matrix[2][1] = -c1*s2
+  r_matrix[2][2] =  c2
+
+  r_matrix = r_matrix.transpose()
+
+  return r_matrix
+
+def findFe_initial(F,Fp):
+  """
+  This function returns elastic deformation gradient from multiplicative decomposition. 
+  Assumes, F = F_e F_p.
+  
+  """
+  
+  Fe = np.matmul(F,np.linalg.inv(Fp))
+  return Fe
+
+def om2eu(om):
+  if abs(om[2][2]) < 1.0:
+    zeta = 1.0/math.sqrt(1.0-om[2][2]**2.0)
+    eu = np.array([math.atan2(om[2][0]*zeta,-om[2][1]*zeta), \
+          math.acos(om[2][2]), \
+          math.atan2(om[0][2]*zeta, om[1][2]*zeta)])
+  else:
+    eu = np.array([math.atan2(om[0][1],om[0][0]),0.5*math.pi*(1-om[2][2]),0.0])
+  
+  eu = np.where(eu<0.0,(eu+2.0*math.pi)%np.array([2.0*math.pi,math.pi,2.0*math.pi]),eu)
+  
+  return eu
+
+def eu2qu(eu):
+  ee = 0.5*eu
+
+  cPhi = math.cos(ee[1])
+  sPhi = math.sin(ee[1])
+  P = -1.0
+  qu =   np.array([   cPhi*math.cos(ee[0]+ee[2]), \
+                   -P*sPhi*math.cos(ee[0]-ee[2]), \
+                   -P*sPhi*math.sin(ee[0]-ee[2]), \
+                   -P*cPhi*math.sin(ee[0]+ee[2])])
+
+  if qu[0] < 0.0:
+    qu = qu*(-1.0)
+
+  return qu
+ 
+
+def qu2om(qu):
+  qq = qu[0]**2 - (qu[1]**2 + qu[2]**2 + qu[3]**2)
+  om = np.zeros((3,3))
+  om[0][0] = qq + 2.0*qu[1]*qu[1]
+  om[1][1] = qq + 2.0*qu[2]*qu[2]
+  om[2][2] = qq + 2.0*qu[3]*qu[3]
+
+  om[0][1] = 2.0*(qu[1]*qu[2] - qu[0]*qu[3])
+  om[1][2] = 2.0*(qu[2]*qu[3] - qu[0]*qu[1])
+  om[2][0] = 2.0*(qu[3]*qu[1] - qu[0]*qu[2])
+  om[1][0] = 2.0*(qu[2]*qu[1] + qu[0]*qu[3])
+  om[2][1] = 2.0*(qu[3]*qu[2] + qu[0]*qu[1])
+  om[0][2] = 2.0*(qu[1]*qu[3] + qu[0]*qu[2])
+
+  return om 
+
+# --------------------------------------------------------------------
 
 class CASIPT_postprocessing():
   """
@@ -80,15 +169,10 @@ class CASIPT_postprocessing():
     geom_data = np.loadtxt('resMDRX.3D.geom',skiprows=1,usecols=(1))
     numbers = geom_data.astype(int) + 1
     numbers = numbers.reshape([grid_size[0],np.prod(grid_size[1:])],order='F').T
-    #write numbers in geom file 
-    #for i in numbers:
-    #  data_to_geom.append(int(i))
     
     for line in data_to_geom:
       print(line)
     
-    #array = np.array(data_to_geom)
-    #np.savetxt('test.geom',array,fmt='%s',newline='\n') 
     np.savetxt('test.geom',numbers,fmt='%s',newline='\n',header='\n'.join(data_to_geom),comments='') 
 
   def findNeighbours(self,regrid,remesh,hdf):
@@ -158,4 +242,46 @@ class CASIPT_postprocessing():
         data_array[:] = input_data[nbr_array]
         data_array = data_array.reshape((zsize,ysize,xsize,) + np.shape(hdf['/solver/' + i])[3:])
         f['/solver/' + i] = data_array
+
+  def Initialize_Fp(self,restart_file_CA,casipt_output,remesh_file):
+      """
+      Modifies the orientation and deformation gradients in the transformed parts.
+
+      Parameters
+      ----------
+      restart_file_CA : str
+        Path of the restart hdf5 file formed after neighbour search
+      casipt_output : str
+        Path of the casipt file containing info about transformed points (resMDRX.MDRX.txt)
+      remesh_file : str
+        Path of the remesh file.
+      """
+      data = np.loadtxt(casipt_output,usecols=((1,3,5,7,9)))
+      hdf_file = h5py.File(restart_file_CA,'a')
+
+      orig_rho = np.loadtxt(remesh_file,skiprows=1,usecols=((5))) 
+      orig_rho = np.loadtxt('resMDRX._rho.txt')
+      ratio = rho_CA/orig_rho
+
+      for i in range(24):
+        hdf_file['/constituent/1_omega_plastic'][:,i] = hdf_file['/constituent/1_omega_plastic'][:,i]*ratio # for BCC till 48, but for fcc till 24 only  
+
+      for i in data:
+        hdf_file['/constituent/1_omega_plastic'][i[0],0:24] = 5E11 # for BCC till 48, but for fcc till 24 only  
+        Fp = np.array(hdf_file['Fp'][i[0]]).reshape((3,3))
+        F  = np.array(hdf_file['F'][i[0]]).reshape((3,3))
+        Fe = findFe_initial(F.T,Fp.T) # because restart file stores deformation gradients as transposed form 
+        d = Decompose(Fe)
+        R = d.math_rotationalPart33(Fe)  #rotational part of Fe = RU
+        orig_eulers = om2eu(R.transpose())   #in radians O_m = R.transpose()
+        stretch = np.matmul(np.linalg.inv(R),Fe)
+        eulers = i[2:5]  
+        eulers = eulers*math.pi/180.0 #degrees to radians
+        rotation_new = eulers_toR(eulers) #you get rotation matrix R from this function 
+        Fe_new       = np.matmul(rotation_new,stretch)
+        Fp_new       = np.matmul(F,np.linalg.inv(Fe_new))
+        Fp_new       = Fp_new.T           # because restart file stores deformation gradients as transposed form
+        hdf_file['Fp'][i[0]] = Fp_new.reshape((1,1,3,3))
+
+        
 
