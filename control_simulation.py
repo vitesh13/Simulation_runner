@@ -5,11 +5,12 @@
 # doing manipulation to files using python
 
 import subprocess, signal, time, os
+import psutil
 import damask
 import h5py
 import re
 
-cmd = "DAMASK_grid -l tensionX.yaml -g 20grains16x16x16.vtr"
+cmd = "mpiexec -n 2 DAMASK_grid -l tensionX.yaml -g 20grains16x16x16.vtr"
 with open('check.txt','w') as f:
     P = subprocess.Popen(cmd,stdout = subprocess.PIPE, stderr = subprocess.PIPE,shell=True)
     r = re.compile(' increment 3 converged')
@@ -21,10 +22,12 @@ with open('check.txt','w') as f:
                os.kill(P.pid+1, signal.SIGSTOP)
                d = damask.Result('20grains16x16x16_tensionX.hdf5')
                print(d.get_dataset_location('F'))
-               #os.kill(P.pid+1, signal.SIGUSR2)
-               #os.kill(P.pid+1, signal.SIGUSR1)
-               os.kill(P.pid+1, signal.SIGTERM)
+               os.kill(P.pid+1, signal.SIGUSR2)
+               os.kill(P.pid+1, signal.SIGUSR1)
                os.kill(P.pid+1, signal.SIGCONT)
+               for children in psutil.Process(P.pid+1).children(recursive=True):
+                   children.terminate()
+                   break #terminating one of the children is enough
     for line in record:
       f.write(line)
 
