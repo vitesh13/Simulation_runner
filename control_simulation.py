@@ -25,9 +25,9 @@ with open('check.txt','w') as f:
                os.kill(P.pid+1, signal.SIGUSR2)
                os.kill(P.pid+1, signal.SIGUSR1)
                os.kill(P.pid+1, signal.SIGCONT)
-               for children in psutil.Process(P.pid+1).children(recursive=True):
-                   children.terminate()
-                   break #terminating one of the children is enough
+               for children in psutil.Process(P.pid).children(recursive=True):
+                   if children.name() == 'DAMASK_grid':
+                      children.terminate()
     for line in record:
       f.write(line)
 
