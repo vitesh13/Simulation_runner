@@ -127,7 +127,7 @@ class CASIPT_postprocessing():
       The grid spacing.
    
     """
-    os.chdir('/nethome/v.shah/{}'.format(self.CA_folder))
+    os.chdir(self.CA_folder)
     with open(self.CA_geom,'r') as f:
       grid_size = f.readline().split()[2:7:2] #read only first line
 

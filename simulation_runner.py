@@ -97,7 +97,7 @@ class Multi_stand_runner():
     copy('resMDRX.fractions.txt','/nethome/v.shah/{}'.format(storage))
     copy('resMDRX.MDRX.txt','/nethome/v.shah/{}'.format(storage))
     copy('resMDRX.texture_MDRX.txt','/nethome/v.shah/{}'.format(storage))
-    copy('resMDRX.casipt','/nethome/v.shah/{}'.format(storage))
+    copy('resMDRX.final.casipt','/nethome/v.shah/{}'.format(storage))
 
 # modify the load file after CA
   def modify_load_file(self,load_file,config_file):
