@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 no BOM -*-
 
 import os,re
-import subprocess
+import subprocess,signal,time
 import shlex
 from shutil import copyfile
 from shutil import copy
@@ -36,18 +36,81 @@ class Multi_stand_runner():
     self.restart_file = '{}_{}_0.hdf5'.format(self.geom_file.split('.')[0],self.load_file.split('.')[0])
 
 # run simulations to get the files
-  def run_fresh_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,extra_config):
-    os.chdir('/nethome/v.shah/{}/'.format(sample_folder))
+  def run_fresh_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc):
+    """
+    Runs a fresh simulation.
+
+    Parameters
+    ----------
+    simulation_folder: str
+      Full path to the folder where the simulation is performed
+    sample_folder: str
+      Full path to folder where the results/config files are stored
+    geom_file: str
+      Name of the geom file
+    load_file: str
+      Name of the load file
+    config_file: str
+      Name of the config (yaml) file.
+    proc : int
+      Number of processors to be used.
+    """
+    os.chdir('{}'.format(sample_folder))
     copy(geom_file, '/nethome/v.shah/{}/'.format(simulation_folder))
     copy(load_file,'/nethome/v.shah/{}/'.format(simulation_folder))  
     copy(config_file,'/nethome/v.shah/{}/'.format(simulation_folder))  
-    copy(extra_config,'/nethome/v.shah/{}/'.format(simulation_folder))  
     os.chdir('/nethome/v.shah/{}/'.format(simulation_folder))
-    cmd = 'DAMASK_spectral -l {} -g {} > check.txt'.format(load_file,geom_file)
+    cmd = 'mpiexec -n {} DAMASK_grid -l {} -g {} > check.txt'.format(proc,load_file,geom_file)
     p = subprocess.Popen(cmd,shell=True)
     while p.poll() == None:
       p.poll()
     return p.poll()
+
+  def run_and_monitor_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc):
+    """
+    Runs a fresh simulation.
+
+    Parameters
+    ----------
+    simulation_folder: str
+      Full path to the folder where the simulation is performed
+    sample_folder: str
+      Full path to folder where the results/config files are stored
+    geom_file: str
+      Name of the geom file
+    load_file: str
+      Name of the load file
+    config_file: str
+      Name of the config (yaml) file.
+    proc : int
+      Number of processors to be used.
+    """
+    os.chdir('{}'.format(sample_folder))
+    copy(geom_file, '{}'.format(simulation_folder))
+    copy(load_file,'{}'.format(simulation_folder))  
+    copy(config_file,'{}'.format(simulation_folder))  
+    os.chdir('{}'.format(simulation_folder))
+    cmd = 'mpiexec -n {} DAMASK_grid -l {} -g {}'.format(proc,load_file,geom_file)
+    with open('check.txt','w') as f:
+      P = subprocess.Popen(cmd,stdout = subprocess.PIPE, stderr = subprocess.PIPE,shell=True)
+      r = re.compile(' increment 3 converged')  #need to do this per increment
+      record = []
+      while P.poll() is None:
+        for count,line in enumerate(iter(P.stdout.readline, b'')):
+          record.append(line.decode('utf-8'))
+          if re.search(r, record[-1]):
+            os.kill(P.pid+1, signal.SIGSTOP)
+            d = damask.Result('20grains16x16x16_tensionX.hdf5')
+            print(d.get_dataset_location('F'))
+            os.kill(P.pid+1, signal.SIGUSR2)
+            os.kill(P.pid+1, signal.SIGUSR1)
+            os.kill(P.pid+1, signal.SIGCONT)
+            for children in psutil.Process(P.pid).children(recursive=True):
+                if children.name() == 'DAMASK_grid':
+                   children.terminate()
+      for line in record:
+        f.write(line)
+          
 
 # modify files after CA
   def copy_modified_files(self,new_geom,new_restart,old_geom,old_restart):
