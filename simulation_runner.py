@@ -68,7 +68,7 @@ class Multi_stand_runner():
 
   def run_and_monitor_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc):
     """
-    Runs a fresh simulation.
+    Runs and monitors a fresh simulation.
 
     Parameters
     ----------
@@ -93,15 +93,14 @@ class Multi_stand_runner():
     cmd = 'mpiexec -n {} DAMASK_grid -l {} -g {}'.format(proc,load_file,geom_file)
     with open('check.txt','w') as f:
       P = subprocess.Popen(cmd,stdout = subprocess.PIPE, stderr = subprocess.PIPE,shell=True)
-      r = re.compile(' increment 3 converged')  #need to do this per increment
+      r = re.compile(' increment [0-9]+ converged') 
       record = []
       while P.poll() is None:
         for count,line in enumerate(iter(P.stdout.readline, b'')):
           record.append(line.decode('utf-8'))
           if re.search(r, record[-1]):
             os.kill(P.pid+1, signal.SIGSTOP)
-            d = damask.Result('20grains16x16x16_tensionX.hdf5')
-            print(d.get_dataset_location('F'))
+            print(self.calc_delta_E(record[-1]))
             os.kill(P.pid+1, signal.SIGUSR2)
             os.kill(P.pid+1, signal.SIGUSR1)
             os.kill(P.pid+1, signal.SIGCONT)
@@ -111,6 +110,20 @@ class Multi_stand_runner():
       for line in record:
         f.write(line)
           
+  def calc_delta_E(self,inc_string):
+    """
+    Calculates the max stored energy difference.
+    """
+    d = damask.Result(self.job_file)
+    converged_inc = inc_string.split()[1]
+    rho_mob = d.read_dataset([path])
+    rho_dip = d.read_dataset([path])
+    tot_rho_array = np.sum((np.sum(rho_mob,1),np.sum(rho_dip,1)),0)
+    max_rho = np.max(tot_rho_array)
+    avg_rho = np.avg(tot_rho_array)
+    diff_rho = max_rho - avg_rho
+    delta_E  = G*(b**2.0)*diff_rho
+    return delta_E
 
 # modify files after CA
   def copy_modified_files(self,new_geom,new_restart,old_geom,old_restart):
