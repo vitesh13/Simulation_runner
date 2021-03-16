@@ -3,6 +3,7 @@
 
 import os,re
 import subprocess,signal,time
+import psutil
 import shlex
 from shutil import copyfile
 from shutil import copy
@@ -56,10 +57,10 @@ class Multi_stand_runner():
       Number of processors to be used.
     """
     os.chdir('{}'.format(sample_folder))
-    copy(geom_file, '/nethome/v.shah/{}/'.format(simulation_folder))
-    copy(load_file,'/nethome/v.shah/{}/'.format(simulation_folder))  
-    copy(config_file,'/nethome/v.shah/{}/'.format(simulation_folder))  
-    os.chdir('/nethome/v.shah/{}/'.format(simulation_folder))
+    copy(geom_file, '{}'.format(simulation_folder))
+    copy(load_file,'{}'.format(simulation_folder))  
+    copy(config_file,'{}'.format(simulation_folder))  
+    os.chdir('{}'.format(simulation_folder))
     cmd = 'mpiexec -n {} DAMASK_grid -l {} -g {} > check.txt'.format(proc,load_file,geom_file)
     p = subprocess.Popen(cmd,shell=True)
     while p.poll() == None:
@@ -100,7 +101,8 @@ class Multi_stand_runner():
           record.append(line.decode('utf-8'))
           if re.search(r, record[-1]):
             os.kill(P.pid+1, signal.SIGSTOP)
-            print(self.calc_delta_E(record[-1]))
+            print(record[-1])
+            #print(self.calc_delta_E(record[-1]))
             os.kill(P.pid+1, signal.SIGUSR2)
             os.kill(P.pid+1, signal.SIGUSR1)
             os.kill(P.pid+1, signal.SIGCONT)
@@ -113,6 +115,12 @@ class Multi_stand_runner():
   def calc_delta_E(self,inc_string):
     """
     Calculates the max stored energy difference.
+    Assumes that every increment is being recorded. 
+
+    Parameters
+    ----------
+    inc_string: str
+      String of type 'increment [0-9]+ converged.
     """
     d = damask.Result(self.job_file)
     converged_inc = inc_string.split()[1]
