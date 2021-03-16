@@ -17,6 +17,7 @@ import numpy as np
 import math
 import h5py
 import xml.etree.ElementTree as ET
+import damask
 
 class Multi_stand_runner():
   """
@@ -96,23 +97,35 @@ class Multi_stand_runner():
       P = subprocess.Popen(cmd,stdout = subprocess.PIPE, stderr = subprocess.PIPE,shell=True)
       r = re.compile(' increment [0-9]+ converged') 
       record = []
+      growth_length = 0.0
       while P.poll() is None:
         for count,line in enumerate(iter(P.stdout.readline, b'')):
           record.append(line.decode('utf-8'))
           if re.search(r, record[-1]):
             os.kill(P.pid+1, signal.SIGSTOP)
             print(record[-1])
-            #print(self.calc_delta_E(record[-1]))
-            os.kill(P.pid+1, signal.SIGUSR2)
-            os.kill(P.pid+1, signal.SIGUSR1)
+            #print(self.calc_delta_E(record[-1],32E9,2.5E-10))
+            d = damask.Result('20grains16x16x16_tensionX.hdf5')
+            print(d.get_dataset_location('rho_mob'))
+            #print(d.fname)
             os.kill(P.pid+1, signal.SIGCONT)
-            for children in psutil.Process(P.pid).children(recursive=True):
-                if children.name() == 'DAMASK_grid':
-                   children.terminate()
+            #velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs shear modulus, b and mobility  
+            #growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
+            #print(growth_length)
+            #if growth_length >= self.get_min_resolution():
+            #  print(record[-1])
+            #  os.kill(P.pid+1, signal.SIGUSR2)
+            #  os.kill(P.pid+1, signal.SIGUSR1)
+            #  os.kill(P.pid+1, signal.SIGCONT)
+            #  for children in psutil.Process(P.pid).children(recursive=True):
+            #      if children.name() == 'DAMASK_grid':
+            #         children.terminate()
+            #else:
+            #  os.kill(P.pid+1, signal.SIGCONT)
       for line in record:
         f.write(line)
           
-  def calc_delta_E(self,inc_string):
+  def calc_delta_E(self,inc_string,G,b):
     """
     Calculates the max stored energy difference.
     Assumes that every increment is being recorded. 
@@ -121,17 +134,77 @@ class Multi_stand_runner():
     ----------
     inc_string: str
       String of type 'increment [0-9]+ converged.
+    G : float
+      Shear modulus (Pa)
+    b : float
+      Burgers vector
     """
     d = damask.Result(self.job_file)
     converged_inc = inc_string.split()[1]
-    rho_mob = d.read_dataset([path])
-    rho_dip = d.read_dataset([path])
-    tot_rho_array = np.sum((np.sum(rho_mob,1),np.sum(rho_dip,1)),0)
-    max_rho = np.max(tot_rho_array)
-    avg_rho = np.avg(tot_rho_array)
-    diff_rho = max_rho - avg_rho
-    delta_E  = G*(b**2.0)*diff_rho
+    recorded_inc  = int(converged_inc) - 1
+    d.view('increments',f'inc{recorded_inc}')
+    path = d.get_dataset_location('rho_mob')[0]
+    #rho_mob = d.read_dataset([path])
+    #rho_dip = d.read_dataset([path.split('rho_mob')[0] + 'rho_dip'])
+    #tot_rho_array = np.sum((np.sum(rho_mob,1),np.sum(rho_dip,1)),0)
+    #max_rho = np.max(tot_rho_array)
+    #avg_rho = np.average(tot_rho_array)
+    #diff_rho = max_rho - avg_rho
+    #
+    #delta_E  = G*(b**2.0)*diff_rho
+    delta_E = 0.0
     return delta_E
+
+
+  def calc_velocity(self,delta_E,M):
+    """
+    Calculates velocity of the interface.
+
+    Parameters
+    ----------
+    delta_E : float
+      Difference in stored energy across an interface
+    M : float
+      Mobility factor.
+    """
+    return M*delta_E
+
+  def calc_timeStep(self,inc_string):
+    """
+    Calculate the current time step in damask.
+
+    Parameters
+    ----------
+    inc_string: str
+      String of type 'increment [0-9]+ converged.
+    """
+    from damask import Config
+    loading = Config.load(self.load_file)
+    total_steps = len(loading['loadstep'])
+    steps_list = [loading['loadstep'][i]['discretization']['N'] for i in range(len(loading['loadstep']))]
+    summed_incs = np.array([sum(steps_list[:i]) for i in range(len(steps_list)+1)][1:])
+    converged_inc = int(inc_string.split()[1])
+    relevant_step = np.where(summed_incs > converged_inc)[0][0] 
+    time_step = loading['loadstep'][relevant_step]['discretization']['t']/\
+                loading['loadstep'][relevant_step]['discretization']['N']
+    return time_step
+
+  def get_min_resolution(self):
+    """
+    Get the minimum grid resolution. 
+
+    Parameters
+    ----------
+    geom_file : str
+      Name of the geom file
+    """
+    from damask import Grid
+    geom = Grid.load(self.geom_file)
+    return np.min(geom.size/geom.cells)
+
+
+
+
 
 # modify files after CA
   def copy_modified_files(self,new_geom,new_restart,old_geom,old_restart):
