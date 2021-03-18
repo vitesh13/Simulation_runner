@@ -36,6 +36,7 @@ class Multi_stand_runner():
     self.job_file = '{}_{}.hdf5'.format(self.geom_file.split('.')[0],self.load_file.split('.')[0])
     self.sta_file = '{}_{}.sta'.format(self.geom_file.split('.')[0],self.load_file.split('.')[0])
     self.restart_file = '{}_{}_0.hdf5'.format(self.geom_file.split('.')[0],self.load_file.split('.')[0])
+    self.tmp = 'tmp_storage'
 
 # run simulations to get the files
   def run_fresh_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc):
@@ -102,26 +103,31 @@ class Multi_stand_runner():
         for count,line in enumerate(iter(P.stdout.readline, b'')):
           record.append(line.decode('utf-8'))
           if re.search(r, record[-1]):
-            os.kill(P.pid+1, signal.SIGSTOP)
+            P.send_signal(signal.SIGSTOP)
             print(record[-1])
-            #print(self.calc_delta_E(record[-1],32E9,2.5E-10))
-            d = damask.Result('20grains16x16x16_tensionX.hdf5')
-            print(d.get_dataset_location('rho_mob'))
-            #print(d.fname)
-            os.kill(P.pid+1, signal.SIGCONT)
-            #velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs shear modulus, b and mobility  
-            #growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
-            #print(growth_length)
-            #if growth_length >= self.get_min_resolution():
-            #  print(record[-1])
-            #  os.kill(P.pid+1, signal.SIGUSR2)
-            #  os.kill(P.pid+1, signal.SIGUSR1)
-            #  os.kill(P.pid+1, signal.SIGCONT)
-            #  for children in psutil.Process(P.pid).children(recursive=True):
-            #      if children.name() == 'DAMASK_grid':
-            #         children.terminate()
-            #else:
-            #  os.kill(P.pid+1, signal.SIGCONT)
+            time.sleep(1)       # needed for avoid clash of fortran and python accessing the same file
+            try:
+                velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs G, b and mobility  
+            except OSError:
+                time.sleep(10)
+                velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs shear modulus, b and mobility  
+            growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
+            print(growth_length)
+            if growth_length*10.0 >= self.get_min_resolution():
+              print(record[-1])
+              P.send_signal(signal.SIGUSR2)
+              P.send_signal(signal.SIGUSR1)
+              print('about to continue')
+              P.send_signal(signal.SIGCONT)
+              for children in psutil.Process(P.pid).children(recursive=True):
+                  print(children)
+                  if children.name() == 'DAMASK_grid':
+                     children.terminate()
+              gone, alive = psutil.wait_procs(psutil.Process(P.pid).children(recursive=True),timeout=0.5)
+              for living in alive:
+                  living.kill()
+            else:
+              os.kill(P.pid+1, signal.SIGCONT)
       for line in record:
         f.write(line)
           
@@ -144,15 +150,14 @@ class Multi_stand_runner():
     recorded_inc  = int(converged_inc) - 1
     d.view('increments',f'inc{recorded_inc}')
     path = d.get_dataset_location('rho_mob')[0]
-    #rho_mob = d.read_dataset([path])
-    #rho_dip = d.read_dataset([path.split('rho_mob')[0] + 'rho_dip'])
-    #tot_rho_array = np.sum((np.sum(rho_mob,1),np.sum(rho_dip,1)),0)
-    #max_rho = np.max(tot_rho_array)
-    #avg_rho = np.average(tot_rho_array)
-    #diff_rho = max_rho - avg_rho
-    #
-    #delta_E  = G*(b**2.0)*diff_rho
-    delta_E = 0.0
+    rho_mob = d.read_dataset([path])
+    rho_dip = d.read_dataset([path.split('rho_mob')[0] + 'rho_dip'])
+    tot_rho_array = np.sum((np.sum(rho_mob,1),np.sum(rho_dip,1)),0)
+    max_rho = np.max(tot_rho_array)
+    avg_rho = np.average(tot_rho_array)
+    diff_rho = max_rho - avg_rho
+    
+    delta_E  = G*(b**2.0)*diff_rho
     return delta_E
 
 
