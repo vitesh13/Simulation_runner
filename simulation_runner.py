@@ -72,6 +72,7 @@ class Multi_stand_runner():
   def run_and_monitor_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc):
     """
     Runs and monitors a fresh simulation.
+    Will return negative value if terminated bz signals.
 
     Parameters
     ----------
@@ -104,8 +105,6 @@ class Multi_stand_runner():
           record.append(line.decode('utf-8'))
           if re.search(r, record[-1]):
             P.send_signal(signal.SIGSTOP)
-            print(record[-1])
-            time.sleep(1)       # needed for avoid clash of fortran and python accessing the same file
             try:
                 velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs G, b and mobility  
             except OSError:
@@ -113,24 +112,21 @@ class Multi_stand_runner():
                 velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs shear modulus, b and mobility  
             growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
             print(growth_length)
-            if growth_length*10.0 >= self.get_min_resolution():
+            if growth_length >= self.get_min_resolution():
               print(record[-1])
               P.send_signal(signal.SIGUSR2)
               P.send_signal(signal.SIGUSR1)
-              print('about to continue')
-              P.send_signal(signal.SIGCONT)
-              for children in psutil.Process(P.pid).children(recursive=True):
+              for children in psutil.Process(P.pid+1).children(recursive=True):
                   print(children)
                   if children.name() == 'DAMASK_grid':
                      children.terminate()
-              gone, alive = psutil.wait_procs(psutil.Process(P.pid).children(recursive=True),timeout=0.5)
-              for living in alive:
-                  living.kill()
+              P.send_signal(signal.SIGCONT)
             else:
-              os.kill(P.pid+1, signal.SIGCONT)
+              P.send_signal(signal.SIGCONT)
       for line in record:
         f.write(line)
-          
+      return P.poll()
+
   def calc_delta_E(self,inc_string,G,b):
     """
     Calculates the max stored energy difference.
