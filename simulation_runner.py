@@ -69,7 +69,7 @@ class Multi_stand_runner():
       p.poll()
     return p.poll()
 
-  def run_and_monitor_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc):
+  def run_and_monitor_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc,freq):
     """
     Runs and monitors a fresh simulation.
     Will return negative value if terminated bz signals.
@@ -88,6 +88,8 @@ class Multi_stand_runner():
       Name of the config (yaml) file.
     proc : int
       Number of processors to be used.
+    freq: int
+      Required output frequency
     """
     os.chdir('{}'.format(sample_folder))
     copy(geom_file, '{}'.format(simulation_folder))
@@ -96,15 +98,23 @@ class Multi_stand_runner():
     os.chdir('{}'.format(simulation_folder))
     cmd = 'mpiexec -n {} DAMASK_grid -l {} -g {}'.format(proc,load_file,geom_file)
     with open('check.txt','w') as f:
-      P = subprocess.Popen(cmd,stdout = subprocess.PIPE, stderr = subprocess.PIPE,shell=True)
+      #P = subprocess.Popen(cmd,stdout = subprocess.PIPE, stderr = subprocess.PIPE,shell=True)
+      P = subprocess.Popen(shlex.split(cmd),stdout = subprocess.PIPE, stderr = subprocess.PIPE)
       r = re.compile(' increment [0-9]+ converged') 
+      r2 = re.compile(' ... wrote initial configuration')
       record = []
       growth_length = 0.0
       while P.poll() is None:
         for count,line in enumerate(iter(P.stdout.readline, b'')):
           record.append(line.decode('utf-8'))
+          #if re.search(r2,record[-1]):
+          #  P.send_signal(signal.SIGSTOP)
+          #  copy(self.job_file,'{}'.format(self.tmp))  #copying initial file to use it as replacement
+          #  P.send_signal(signal.SIGCONT)
           if re.search(r, record[-1]):
             P.send_signal(signal.SIGSTOP)
+            print(P.pid)
+            #print(psutil.Process(P.pid+1))
             try:
                 velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs G, b and mobility  
             except OSError:
@@ -112,6 +122,8 @@ class Multi_stand_runner():
                 velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs shear modulus, b and mobility  
             growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
             print(growth_length)
+            print(record[-1])
+            #self.transfer_to_record(record[-1],freq)
             if growth_length >= self.get_min_resolution():
               print(record[-1])
               P.send_signal(signal.SIGUSR2)
@@ -126,6 +138,23 @@ class Multi_stand_runner():
       for line in record:
         f.write(line)
       return P.poll()
+
+  def transfer_to_record(self,inc_string,freq):
+    """
+    Checks if the increment is at required output frequency. 
+
+    Parameters
+    ----------
+    inc_string: str
+      String of type 'increment [0-9]+ converged.
+    freq: int
+      Required output frequency
+    """
+    converged_inc = int(inc_string.split()[1])
+    if (converged_inc)%freq == 0:
+      copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
+    #if (converged_inc - 1)%freq == 0:
+    #  copy(self.job_file,'{}'.format(self.tmp))
 
   def calc_delta_E(self,inc_string,G,b):
     """
@@ -144,6 +173,7 @@ class Multi_stand_runner():
     d = damask.Result(self.job_file)
     converged_inc = inc_string.split()[1]
     recorded_inc  = int(converged_inc) - 1
+    print(d.increments)
     d.view('increments',f'inc{recorded_inc}')
     path = d.get_dataset_location('rho_mob')[0]
     rho_mob = d.read_dataset([path])
