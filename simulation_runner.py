@@ -115,25 +115,23 @@ class Multi_stand_runner():
             P.send_signal(signal.SIGSTOP)
             print(record[-1])
             velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs G, b and mobility  
-            P.send_signal(signal.SIGCONT)
-          #  growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
-          #  print(growth_length)
-          #  print(record[-1])
-          #  #self.transfer_to_record(record[-1],freq)
-          #  if growth_length >= self.get_min_resolution():
-          #    print(record[-1])
-          #    P.send_signal(signal.SIGUSR2)
-          #    P.send_signal(signal.SIGUSR1)
-          #    for children in psutil.Process(P.pid+1).children(recursive=True):
-          #        print(children)
-          #        if children.name() == 'DAMASK_grid':
-          #           children.terminate()
-          #    P.send_signal(signal.SIGCONT)
-          #  else:
-          #    P.send_signal(signal.SIGCONT)
-      #for line in record:
-      #  f.write(line)
-      #return P.poll()
+            growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
+            print(growth_length)
+            if growth_length >= self.get_min_resolution():
+              print(record[-1])
+              P.send_signal(signal.SIGUSR1)
+              P.send_signal(signal.SIGUSR2)
+              # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
+              for children in psutil.Process(P.pid).children(recursive=True):
+                print(children)
+                if children.name() == 'DAMASK_grid':
+                  children.terminate()
+              P.send_signal(signal.SIGCONT)
+            else:
+              P.send_signal(signal.SIGCONT)
+      for line in record:
+        f.write(line)
+      return P.poll()
 
   def transfer_to_record(self,inc_string,freq):
     """
@@ -210,7 +208,7 @@ class Multi_stand_runner():
     total_steps = len(loading['loadstep'])
     steps_list = [loading['loadstep'][i]['discretization']['N'] for i in range(len(loading['loadstep']))]
     summed_incs = np.array([sum(steps_list[:i]) for i in range(len(steps_list)+1)][1:])
-    converged_inc = int(inc_string.split()[1])
+    converged_inc = int(re.search('[0-9]+',inc_string).group())
     relevant_step = np.where(summed_incs > converged_inc)[0][0] 
     time_step = loading['loadstep'][relevant_step]['discretization']['t']/\
                 loading['loadstep'][relevant_step]['discretization']['N']
