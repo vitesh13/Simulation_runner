@@ -27,15 +27,15 @@ class Multi_stand_runner():
   #simulation file names etc
   def __init__(self):
     """ Sets the files names and folder names."""
-    self.sample_folder = 'DRX_sample_simulations/example_microstructure_2/small_scale_Shen_2016' #need to change this folder when doing other stands
-    self.simulation_folder = 'DRX_sample_simulations'
-    self.geom_file = '3D_small_scale_95_microns.geom'
-    self.load_file = 'tensionX_10.load'
-    self.config_file = 'material.config'
+    self.sample_folder = '/nethome/v.shah/DAMASK/examples/grid/' #need to change this folder when doing other stands
+    self.simulation_folder = '/nethome/v.shah/DAMASK/examples/grid/simulation'
+    self.geom_file = '20grains16x16x16.vtr'
+    self.load_file = 'tensionX.yaml'
+    self.config_file = 'material.yaml'
     self.extra_config = 'ho_cr_ph.config'
     self.job_file = '{}_{}.hdf5'.format(self.geom_file.split('.')[0],self.load_file.split('.')[0])
     self.sta_file = '{}_{}.sta'.format(self.geom_file.split('.')[0],self.load_file.split('.')[0])
-    self.restart_file = '{}_{}_0.hdf5'.format(self.geom_file.split('.')[0],self.load_file.split('.')[0])
+    self.restart_file = '{}_{}_restart.hdf5'.format(self.geom_file.split('.')[0],self.load_file.split('.')[0])
     self.tmp = 'tmp_storage'
 
 # run simulations to get the files
@@ -98,46 +98,51 @@ class Multi_stand_runner():
     os.chdir('{}'.format(simulation_folder))
     cmd = 'mpiexec -n {} DAMASK_grid -l {} -g {}'.format(proc,load_file,geom_file)
     with open('check.txt','w') as f:
-      #P = subprocess.Popen(cmd,stdout = subprocess.PIPE, stderr = subprocess.PIPE,shell=True)
       P = subprocess.Popen(shlex.split(cmd),stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-      r = re.compile(' increment [0-9]+ converged') 
+      r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0') 
       r2 = re.compile(' ... wrote initial configuration')
       record = []
       growth_length = 0.0
       while P.poll() is None:
         for count,line in enumerate(iter(P.stdout.readline, b'')):
           record.append(line.decode('utf-8'))
-          #if re.search(r2,record[-1]):
-          #  P.send_signal(signal.SIGSTOP)
-          #  copy(self.job_file,'{}'.format(self.tmp))  #copying initial file to use it as replacement
-          #  P.send_signal(signal.SIGCONT)
-          if re.search(r, record[-1]):
+          if re.search(r2,record[-1]):
             P.send_signal(signal.SIGSTOP)
-            print(P.pid)
-            #print(psutil.Process(P.pid+1))
+            copy(self.job_file,'{}'.format(self.tmp))  #copying initial file to use it as replacement
+            P.send_signal(signal.SIGCONT)
+
+          if re.search(r, record[-1]):
+            print(record[-2])
+            P.send_signal(signal.SIGSTOP)
+            for children in psutil.Process(P.pid).children(recursive=True):
+                if children.name() == 'DAMASK_grid':
+                   children.suspend()
+            print(record[-1])
             try:
                 velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs G, b and mobility  
             except OSError:
+                h5py.File(self.job_file).close()
                 time.sleep(10)
                 velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs shear modulus, b and mobility  
-            growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
-            print(growth_length)
-            print(record[-1])
-            #self.transfer_to_record(record[-1],freq)
-            if growth_length >= self.get_min_resolution():
-              print(record[-1])
-              P.send_signal(signal.SIGUSR2)
-              P.send_signal(signal.SIGUSR1)
-              for children in psutil.Process(P.pid+1).children(recursive=True):
-                  print(children)
-                  if children.name() == 'DAMASK_grid':
-                     children.terminate()
-              P.send_signal(signal.SIGCONT)
-            else:
-              P.send_signal(signal.SIGCONT)
-      for line in record:
-        f.write(line)
-      return P.poll()
+            P.send_signal(signal.SIGCONT)
+          #  growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
+          #  print(growth_length)
+          #  print(record[-1])
+          #  #self.transfer_to_record(record[-1],freq)
+          #  if growth_length >= self.get_min_resolution():
+          #    print(record[-1])
+          #    P.send_signal(signal.SIGUSR2)
+          #    P.send_signal(signal.SIGUSR1)
+          #    for children in psutil.Process(P.pid+1).children(recursive=True):
+          #        print(children)
+          #        if children.name() == 'DAMASK_grid':
+          #           children.terminate()
+          #    P.send_signal(signal.SIGCONT)
+          #  else:
+          #    P.send_signal(signal.SIGCONT)
+      #for line in record:
+      #  f.write(line)
+      #return P.poll()
 
   def transfer_to_record(self,inc_string,freq):
     """
@@ -171,7 +176,7 @@ class Multi_stand_runner():
       Burgers vector
     """
     d = damask.Result(self.job_file)
-    converged_inc = inc_string.split()[1]
+    converged_inc = re.search('[0-9]+',inc_string).group() 
     recorded_inc  = int(converged_inc) - 1
     print(d.increments)
     d.view('increments',f'inc{recorded_inc}')
