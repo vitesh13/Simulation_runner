@@ -112,18 +112,9 @@ class Multi_stand_runner():
             P.send_signal(signal.SIGCONT)
 
           if re.search(r, record[-1]):
-            print(record[-2])
             P.send_signal(signal.SIGSTOP)
-            for children in psutil.Process(P.pid).children(recursive=True):
-                if children.name() == 'DAMASK_grid':
-                   children.suspend()
             print(record[-1])
-            try:
-                velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs G, b and mobility  
-            except OSError:
-                h5py.File(self.job_file).close()
-                time.sleep(10)
-                velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs shear modulus, b and mobility  
+            velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs G, b and mobility  
             P.send_signal(signal.SIGCONT)
           #  growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
           #  print(growth_length)
