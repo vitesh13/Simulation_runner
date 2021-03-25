@@ -122,10 +122,10 @@ class Multi_stand_runner():
               #P.send_signal(signal.SIGUSR1)
               P.send_signal(signal.SIGUSR2)
               # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
-              #for children in psutil.Process(P.pid).children(recursive=True):
-              #  print(children)
-              #  if children.name() == 'DAMASK_grid':
-              #    children.terminate()
+              for children in psutil.Process(P.pid).children(recursive=True):
+                print(children)
+                if children.name() == 'DAMASK_grid':
+                  children.terminate()
               P.send_signal(signal.SIGCONT)
             else:
               P.send_signal(signal.SIGCONT)
