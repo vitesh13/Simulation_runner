@@ -416,11 +416,11 @@ class Multi_stand_runner():
 
     """
     import damask 
-    os.chdir('/nethome/v.shah/{}/'.format(simulation_folder))
-    d = damask.Result('{}.hdf5'.format(job_file.split('.')[0]))
+    os.chdir(simulation_folder)
+    d = damask.Result(job_file)
     orientation0 = d.get_initial_orientation()
-    d.add_grainrotation(orientation0)
-    d.add_Eulers('orientation')
+    d.add_grainrotation(orientation0,degrees=True,with_axis=False,without_rigid_rotation=True)
+    #d.add_Eulers('orientation')
     d.add_calculation('tot_density','np.sum((np.sum(#rho_mob#,1),np.sum(#rho_dip#,1)),0)')
     d.add_calculation('r_s',"40/np.sqrt(#tot_density#)")
 
