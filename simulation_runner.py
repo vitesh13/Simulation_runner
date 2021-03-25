@@ -117,6 +117,7 @@ class Multi_stand_runner():
             velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs G, b and mobility  
             growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
             print(growth_length)
+            self.file_transfer(record[-1],freq)
             if growth_length >= self.get_min_resolution():
               print(record[-1])
               #P.send_signal(signal.SIGUSR1)
@@ -133,9 +134,9 @@ class Multi_stand_runner():
         f.write(line)
       return P.poll()
 
-  def transfer_to_record(self,inc_string,freq):
+  def file_transfer(self,inc_string,freq):
     """
-    Checks if the increment is at required output frequency. 
+    Moves around the result file to avoid too many increments. 
 
     Parameters
     ----------
@@ -144,11 +145,11 @@ class Multi_stand_runner():
     freq: int
       Required output frequency
     """
-    converged_inc = int(inc_string.split()[1])
+    converged_inc = int(re.search('[0-9]+',inc_string).group())
     if (converged_inc)%freq == 0:
       copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
-    #if (converged_inc - 1)%freq == 0:
-    #  copy(self.job_file,'{}'.format(self.tmp))
+    if (converged_inc - 1)%freq == 0:
+      copy(self.job_file,'{}'.format(self.tmp))
 
   def calc_delta_E(self,inc_string,G,b):
     """
