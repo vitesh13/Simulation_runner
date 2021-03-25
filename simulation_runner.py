@@ -119,13 +119,13 @@ class Multi_stand_runner():
             print(growth_length)
             if growth_length >= self.get_min_resolution():
               print(record[-1])
-              P.send_signal(signal.SIGUSR1)
+              #P.send_signal(signal.SIGUSR1)
               P.send_signal(signal.SIGUSR2)
               # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
-              for children in psutil.Process(P.pid).children(recursive=True):
-                print(children)
-                if children.name() == 'DAMASK_grid':
-                  children.terminate()
+              #for children in psutil.Process(P.pid).children(recursive=True):
+              #  print(children)
+              #  if children.name() == 'DAMASK_grid':
+              #    children.terminate()
               P.send_signal(signal.SIGCONT)
             else:
               P.send_signal(signal.SIGCONT)
@@ -209,9 +209,12 @@ class Multi_stand_runner():
     steps_list = [loading['loadstep'][i]['discretization']['N'] for i in range(len(loading['loadstep']))]
     summed_incs = np.array([sum(steps_list[:i]) for i in range(len(steps_list)+1)][1:])
     converged_inc = int(re.search('[0-9]+',inc_string).group())
-    relevant_step = np.where(summed_incs > converged_inc)[0][0] 
-    time_step = loading['loadstep'][relevant_step]['discretization']['t']/\
+    try: 
+      relevant_step = np.where(summed_incs > converged_inc)[0][0] 
+      time_step = loading['loadstep'][relevant_step]['discretization']['t']/\
                 loading['loadstep'][relevant_step]['discretization']['N']
+    except IndexError:
+      time_step = 0.0
     return time_step
 
   def get_min_resolution(self):
