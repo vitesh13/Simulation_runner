@@ -18,6 +18,7 @@ import math
 import h5py
 import xml.etree.ElementTree as ET
 import damask
+from scipy import constants
 
 class Multi_stand_runner():
   """
@@ -37,6 +38,7 @@ class Multi_stand_runner():
     self.sta_file = '{}_{}.sta'.format(self.geom_file.split('.')[0],self.load_file.split('.')[0])
     self.restart_file = '{}_{}_restart.hdf5'.format(self.geom_file.split('.')[0],self.load_file.split('.')[0])
     self.tmp = 'tmp_storage'
+    self.casipt_input = '/nethome/v.shah/casipt/casipt/input/test_drx.xml'
 
 # run simulations to get the files
   def run_fresh_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc):
@@ -114,7 +116,7 @@ class Multi_stand_runner():
           if re.search(r, record[-1]):
             P.send_signal(signal.SIGSTOP)
             print(record[-1])
-            velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),5E-10)  #needs G, b and mobility  
+            velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),self.casipt_input)  #needs G, b and mobility  
             growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
             print(growth_length)
             self.file_transfer(record[-1],freq)
@@ -177,12 +179,14 @@ class Multi_stand_runner():
     max_rho = np.max(tot_rho_array)
     avg_rho = np.average(tot_rho_array)
     diff_rho = max_rho - avg_rho
-    
-    delta_E  = G*(b**2.0)*diff_rho
+    austenite_mv = 0.0000073713716  # austenite molar volume
+     
+    print(diff_rho)
+    delta_E  = G*(b**2.0)*diff_rho*austenite_mv
     return delta_E
 
 
-  def calc_velocity(self,delta_E,M):
+  def calc_velocity(self,delta_E,casipt_input):
     """
     Calculates velocity of the interface.
 
@@ -193,7 +197,15 @@ class Multi_stand_runner():
     M : float
       Mobility factor.
     """
-    return M*delta_E
+    from damask import Config
+    loading = Config.load(self.load_file)
+    T = loading['initial_conditions']['thermal']['T']
+    tree = ET.parse(casipt_input)
+    root = tree.getroot()
+    M_0 = float(root.find('v0_gg').text)
+    Q   = float(root.find('Qg_gg').text)
+     
+    return M_0*np.exp(-Q/(constants.R*T))*delta_E
 
   def calc_timeStep(self,inc_string):
     """
