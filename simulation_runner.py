@@ -284,18 +284,18 @@ class Multi_stand_runner():
     """
  
     os.chdir(path_to_CA)
-    if not os.path.exists('/nethome/v.shah/{}/{}_stand/CA_files/'.format(sample_folder,stand)):
-      os.mkdir('/nethome/v.shah/{}/{}_stand/CA_files/'.format(sample_folder,stand))
-    os.mkdir('/nethome/v.shah/{}/{}_stand/CA_files/{}'.format(sample_folder,stand,time))
-    storage = '{}/{}_stand/CA_files/{}'.format(sample_folder,stand,time)
-    copy('resMDRX..ang','/nethome/v.shah/{}'.format(storage))
-    copy('resMDRX._rho.txt','/nethome/v.shah/{}'.format(storage))
-    copy('resMDRX.3D.geom','/nethome/v.shah/{}'.format(storage))
-    #copy('resMDRX.final.map.xy.dat','/nethome/v.shah/{}'.format(storage))
-    copy('resMDRX.fractions.txt','/nethome/v.shah/{}'.format(storage))
-    copy('resMDRX.MDRX.txt','/nethome/v.shah/{}'.format(storage))
-    copy('resMDRX.texture_MDRX.txt','/nethome/v.shah/{}'.format(storage))
-    copy('resMDRX.final.casipt','/nethome/v.shah/{}'.format(storage))
+    if not os.path.exists('{}{}_stand/CA_files/'.format(sample_folder,stand)):
+      os.mkdir('{}{}_stand/CA_files/'.format(sample_folder,stand))
+    os.mkdir('{}{}_stand/CA_files/{}'.format(sample_folder,stand,time))
+    storage = '{}{}_stand/CA_files/{}'.format(sample_folder,stand,time)
+    copy('..ang','{}'.format(storage))
+    copy('._rho.txt','{}'.format(storage))
+    copy('.3D.geom','{}'.format(storage))
+    #copy(X.final.map.xy.dat','/nethome/v.shah/{}'.format(storage))
+    copy('.fractions.txt','{}'.format(storage))
+    copy('.MDRX.txt','{}'.format(storage))
+    copy('.texture_MDRX.txt','{}'.format(storage))
+    copy('.final.casipt','{}'.format(storage))
 
 # modify the load file after CA
   def modify_load_file(self,load_file,config_file):
