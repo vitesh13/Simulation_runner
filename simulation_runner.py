@@ -500,7 +500,7 @@ class Multi_stand_runner():
       Name of the input xml file for CA
     """
    
-    os.chdir('/nethome/v.shah/casipt/casipt/')
+    os.chdir('/nethome/v.shah/casipt/casipt_dens/casipt')
     subprocess.run(shlex.split('bin/casipt input/{}'.format(input_settings)))  
 
 
