@@ -19,6 +19,7 @@ import h5py
 import xml.etree.ElementTree as ET
 import damask
 from scipy import constants
+from damask import ConfigMaterial as cm
 
 class Multi_stand_runner():
   """
@@ -480,6 +481,11 @@ class Multi_stand_runner():
     tree = ET.parse(filename)
     root = tree.getroot()
     
+    
+    damask_mat = cm.load(self.simulation_folder + '/' + self.config_file) 
+    phase_name  = [i for i in damask_mat['phase'].keys()][0]
+    rho_mob_0   = float(damask_mat['phase'][phase_name]['mechanics']['plasticity']['rho_mob_0'][0])*12
+    rho_dip_0   = float(damask_mat['phase'][phase_name]['mechanics']['plasticity']['rho_dip_0'][0])*12 #multiplying by slip systems
     root.find('T0').text = str(T)
     root.find('nx').text = str(grid[0])
     root.find('ny').text = str(grid[1])
@@ -488,6 +494,7 @@ class Multi_stand_runner():
     root.find('dx').text = '{:.8f}'.format(dx)
     root.find('startfile_fn').text = start_file
     root.find('basefn').text = basefn
+    root.find('mvInitialDislocationDensity').text = str(rho_mob_0 + rho_dip_0)
     tree.write(filename)
     
   def perform_CA(self,input_settings):
