@@ -242,9 +242,9 @@ class Remesh_for_CA():
     data[:,1] = unit_scale*data[:,1] - min_y
     data[:,2] = unit_scale*data[:,2] - min_z
     
-    nx = int(np.max(data[:,0])/dx)
-    ny = int(np.max(data[:,1])/dx)
-    nz = int(np.max(data[:,2])/dx)
+    nx = int(round(np.max(data[:,0])/dx))
+    ny = int(round(np.max(data[:,1])/dx))
+    nz = int(round(np.max(data[:,2])/dx))
     print('Nx:',nx)
     print('Ny:',ny)
     print('Nz:',nz)
