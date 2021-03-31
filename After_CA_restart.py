@@ -9,6 +9,7 @@ from damask import Grid
 from damask import ConfigMaterial as cm
 from damask import Rotation
 from damask import Orientation
+from damask import tensor
 from Fe_decomposition import Decompose
 
 #--------------------------------------------------------------------------
@@ -318,9 +319,9 @@ class CASIPT_postprocessing():
       Path of the simulation_folder
     """
     ori = np.loadtxt('.texture_MDRX.txt',usecols=(4,6,8))
-    ori = Rotation.from_Euler_angles(ori).as_quaternion().reshape(-1,4)
+    ori = Rotation.from_Euler_angles(ori,degrees=True).as_quaternion().reshape(-1,4)
     base_config = cm.load('{}/material.yaml'.format(simulation_folder))
-    phase = [base_config['material'][0]['constituent']['phase']]*len(ori)
+    phase = [base_config['material'][0]['constituents']['phase']]*len(ori)
     idx = np.arange(len(ori))
     constituent = {k:np.atleast_1d(v[idx].squeeze()) for k,v in zip(['O','phase'],[O,phase])}
     new_config = base_config.material_add(**constituent,homogenization='direct')
@@ -402,7 +403,7 @@ class CASIPT_postprocessing():
         f[f'/phase/{p}/' + i] = data_array
 
 
-  def Initialize_Fp(self,restart_file_CA,casipt_output,remesh_file):
+  def Initialize_Fp(self,restart_file_CA,casipt_output,remesh_file,ang_file,rho_file):
       """
       Modifies the orientation and deformation gradients in the transformed parts.
 
@@ -414,33 +415,42 @@ class CASIPT_postprocessing():
         Path of the casipt file containing info about transformed points (resMDRX.MDRX.txt)
       remesh_file : str
         Path of the remesh file.
+      ang_file : str
+        Path of the ang file from CASIPT.
+      rho_file : str
+        Path of the rho file from CASIPT.
       """
-      data = np.loadtxt(casipt_output,usecols=((1,3,5,7,9)))
+      ori_after_CA = np.loadtxt(ang_file)
+      rho_CA       = np.loadtxt(rho_file)
+      #data = np.loadtxt(casipt_output,usecols=((1,3,5,7,9)))
       hdf_file = h5py.File(restart_file_CA,'a')
 
       orig_rho = np.loadtxt(remesh_file,skiprows=1,usecols=((5))) 
-      orig_rho = np.loadtxt('resMDRX._rho.txt')
       ratio = rho_CA/orig_rho
+      phase_name = [i for i in hdf_file['phase'].keys()][0]
 
       for i in range(24):
-        hdf_file['/constituent/1_omega_plastic'][:,i] = hdf_file['/constituent/1_omega_plastic'][:,i]*ratio # for BCC till 48, but for fcc till 24 only  
+        hdf_file['/phase/{}/omega'.format(phase_name)][:,i] = hdf_file['/phase/{}/omega'.format(phase_name)][:,i]*ratio # for BCC till 48, but for fcc till 24 only  
 
-      for i in data:
-        hdf_file['/constituent/1_omega_plastic'][i[0],0:24] = 5E11 # for BCC till 48, but for fcc till 24 only  
-        Fp = np.array(hdf_file['Fp'][i[0]]).reshape((3,3))
-        F  = np.array(hdf_file['F'][i[0]]).reshape((3,3))
-        Fe = findFe_initial(F.T,Fp.T) # because restart file stores deformation gradients as transposed form 
-        d = Decompose(Fe)
-        R = d.math_rotationalPart33(Fe)  #rotational part of Fe = RU
-        orig_eulers = om2eu(R.transpose())   #in radians O_m = R.transpose()
-        stretch = np.matmul(np.linalg.inv(R),Fe)
-        eulers = i[2:5]  
-        eulers = eulers*math.pi/180.0 #degrees to radians
-        rotation_new = eulers_toR(eulers) #you get rotation matrix R from this function 
-        Fe_new       = np.matmul(rotation_new,stretch)
-        Fp_new       = np.matmul(F,np.linalg.inv(Fe_new))
-        Fp_new       = Fp_new.T           # because restart file stores deformation gradients as transposed form
-        hdf_file['Fp'][i[0]] = Fp_new.reshape((1,1,3,3))
+      Re_0 = tensor.transpose(Rotation.from_Euler_angles(ori_after_CA,degrees=True).as_matrix())  #convert euler angles to rotation matrix
+       
+      hdf_file['/phase/{}/F_p'] = Re_0
+      #for i in data:
+      #  hdf_file['/constituent/1_omega_plastic'][i[0],0:24] = 5E11 # for BCC till 48, but for fcc till 24 only  
+      #  Fp = np.array(hdf_file['Fp'][i[0]]).reshape((3,3))
+      #  F  = np.array(hdf_file['F'][i[0]]).reshape((3,3))
+      #  Fe = findFe_initial(F.T,Fp.T) # because restart file stores deformation gradients as transposed form 
+      #  d = Decompose(Fe)
+      #  R = d.math_rotationalPart33(Fe)  #rotational part of Fe = RU
+      #  orig_eulers = om2eu(R.transpose())   #in radians O_m = R.transpose()
+      #  stretch = np.matmul(np.linalg.inv(R),Fe)
+      #  eulers = i[2:5]  
+      #  eulers = eulers*math.pi/180.0 #degrees to radians
+      #  rotation_new = eulers_toR(eulers) #you get rotation matrix R from this function 
+      #  Fe_new       = np.matmul(rotation_new,stretch)
+      #  Fp_new       = np.matmul(F,np.linalg.inv(Fe_new))
+      #  Fp_new       = Fp_new.T           # because restart file stores deformation gradients as transposed form
+      #  hdf_file['Fp'][i[0]] = Fp_new.reshape((1,1,3,3))
 
         
 
