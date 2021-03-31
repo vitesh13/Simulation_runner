@@ -376,7 +376,7 @@ class Multi_stand_runner():
     copy(config_file, '/nethome/v.shah/{}/'.format(storage))
     copy(extra_config, '/nethome/v.shah/{}/'.format(storage))
 
-  def save_rawfiles(self,stand,simulation_folder,sample_folder,job_file,restart_file,geom_file,load_file,config_file,extra_config,sta_file):
+  def save_rawfiles(self,stand,simulation_folder,sample_folder,job_file,restart_file,geom_file,load_file,config_file,sta_file):
     """
     Keeps the raw unprocessed HDF5 files (in case processing goes wrong).
     Parameters
@@ -386,16 +386,16 @@ class Multi_stand_runner():
     sample_folder : string
       folder where data gets stored.
     """
-    os.chdir('/nethome/v.shah/{}/'.format(simulation_folder))
-    os.mkdir('/nethome/v.shah/{}/{}_stand/raw_files/'.format(sample_folder,stand))
+    if not os.path.exists('{}/{}_stand/raw_files/'.format(sample_folder,stand)):
+      os.mkdir('{}{}_stand/raw_files/'.format(sample_folder,stand))
+    os.chdir('{}/'.format(simulation_folder))
     storage = '{}/{}_stand/raw_files'.format(sample_folder,stand)
-    copy(job_file, '/nethome/v.shah/{}/'.format(storage))
-    copy(sta_file, '/nethome/v.shah/{}/'.format(storage))
-    copy(restart_file, '/nethome/v.shah/{}/'.format(storage))
-    copy(geom_file, '/nethome/v.shah/{}/'.format(storage))
-    copy(load_file, '/nethome/v.shah/{}/'.format(storage))
-    copy(config_file, '/nethome/v.shah/{}/'.format(storage))
-    copy(extra_config, '/nethome/v.shah/{}/'.format(storage))
+    copy(job_file, '{}/'.format(storage))
+    copy(sta_file, '{}/'.format(storage))
+    copy(restart_file, '{}/'.format(storage))
+    copy(geom_file, '{}/'.format(storage))
+    copy(load_file, '{}/'.format(storage))
+    copy(config_file, '{}/'.format(storage))
 
   def change_GIT_branch(self,branch_name):
     """
