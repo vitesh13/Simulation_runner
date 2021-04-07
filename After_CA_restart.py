@@ -170,7 +170,7 @@ class CASIPT_postprocessing():
     with open(self.CA_geom,'r') as f:
       grid_size = f.readline().split()[2:7:2] #read only first line
 
-    grain_id = np.loadtxt(self.CA_geom,skiprows=1,usecols=(1))
+    grain_id = np.loadtxt(self.CA_geom,skiprows=1,usecols=(1)) + 1
     grid_size = np.array([int(i) for i in grid_size])
  
     n_elem = np.prod(grid_size)   #need to check if it is correct for 2D geometry
@@ -321,9 +321,9 @@ class CASIPT_postprocessing():
     ori = np.loadtxt('.texture_MDRX.txt',usecols=(4,6,8))
     ori = Rotation.from_Euler_angles(ori,degrees=True).as_quaternion().reshape(-1,4)
     base_config = cm.load('{}/material.yaml'.format(simulation_folder))
-    phase = [base_config['material'][0]['constituents']['phase']]*len(ori)
+    phase = np.array([base_config['material'][1]['constituents'][0]['phase']]*len(ori))
     idx = np.arange(len(ori))
-    constituent = {k:np.atleast_1d(v[idx].squeeze()) for k,v in zip(['O','phase'],[O,phase])}
+    constituent = {k:np.atleast_1d(v[idx].squeeze()) for k,v in zip(['O','phase'],[ori,phase])}
     new_config = base_config.material_add(**constituent,homogenization='direct')
     new_config.save()
  
@@ -434,7 +434,10 @@ class CASIPT_postprocessing():
 
       Re_0 = tensor.transpose(Rotation.from_Euler_angles(ori_after_CA,degrees=True).as_matrix())  #convert euler angles to rotation matrix
        
-      hdf_file['/phase/{}/F_p'] = Re_0
+      data = hdf_file['/phase/{}/F_p'.format(phase_name)]
+      data[...] = Re_0
+      hdf_file.close()
+      #hdf_file['/phase/{}/F_p'.format(phase_name)] = Re_0
       #for i in data:
       #  hdf_file['/constituent/1_omega_plastic'][i[0],0:24] = 5E11 # for BCC till 48, but for fcc till 24 only  
       #  Fp = np.array(hdf_file['Fp'][i[0]]).reshape((3,3))
