@@ -356,7 +356,7 @@ class CASIPT_postprocessing():
     file_name = os.path.splitext(hdf)[0] + '_CA.hdf5'
 
     f = h5py.File(file_name)
-    
+
     hdf = h5py.File(hdf)
 
     names_in_big_groups_dict = {}
@@ -423,6 +423,7 @@ class CASIPT_postprocessing():
       ori_after_CA = np.loadtxt(ang_file)
       rho_CA       = np.loadtxt(rho_file)
       #data = np.loadtxt(casipt_output,usecols=((1,3,5,7,9)))
+
       hdf_file = h5py.File(restart_file_CA,'a')
 
       orig_rho = np.loadtxt(remesh_file,skiprows=1,usecols=((5))) 
