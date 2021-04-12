@@ -163,6 +163,26 @@ class Remesh_for_CA():
                                                 "{:.12f}".format,"{:.8f}".format,"{:.8f}".format, \
                                                 "{:.8f}".format],index=False)
     
+    #--------------------------------
+    # make df for initial orientation
+    #--------------------------------
+    df_init = pd.DataFrame()
+    df_init['x'] = Cell_coords[:,0]
+    df_init['y'] = Cell_coords[:,1]
+    df_init['z'] = Cell_coords[:,2]
+
+    # open the dataset from initial increment
+    d.view('increments',f'inc0')
+    orientation_0 = d.read_dataset(d.get_dataset_location('O'))
+    orientation_0_rg = orientation_0[rg.get_nearestNeighbors()]
+    df_init['q0'] = orientation_0_rg[:,0] 
+    df_init['q1'] = orientation_0_rg[:,1] 
+    df_init['q2'] = orientation_0_rg[:,2] 
+    df_init['q3'] = orientation_0_rg[:,3] 
+    
+    #df_init.to_csv('postProc/Initial_orientation_regridded_inc{}'.format(inc),index=False,header=False)
+    np.savetxt('postProc/Initial_orientation_regridded_inc{}.txt'.format(inc),df_init.values)
+   
     #create a hdf5 file
     #new_hdf_name = 'new_' + rg.h5OutputName_0 + 'inc' + str(inc) + '.hdf5'
     #hdf = h5py.File(new_hdf_name,'w')
@@ -268,5 +288,18 @@ class Remesh_for_CA():
     new_path     = os.path.join(dir_file,new_filename)
     np.savetxt(new_path,new_data,fmt = ' '.join(['%.10e']*3 + ['%i'] + ['%.10e']*6), \
                header='{} {}'.format(str(len(new_data)),str(int(np.max(data[:,3])))),comments='')
+
+    # extra for remeshing original orientation
+    data_for_ori = np.loadtxt('postProc/Initial_orientation_regridded_inc{}.txt'.format(\
+                              os.path.basename(os.path.splitext(filename)[0]).split('inc')[1]),usecols=(3,4,5,6))
+    print(data_for_ori.shape)
+    new_data_for_ori = np.zeros((len(new_coords),7))
+    new_data_for_ori[:,0:3] = new_coords
+    new_data_for_ori[:,3:7] = griddata(data[:,0:3],data_for_ori[:,0:4],new_data_for_ori[:,0:3],method='nearest')
+
+    np.savetxt('postProc/remesh_Initial_orientation_inc{}.txt'.format(\
+               os.path.basename(os.path.splitext(filename)[0]).split('inc')[1]),\
+               new_data_for_ori)#,fmt = ' '.join(['%.10e']*3  + ['%.10f']*4))
+
     return nx,ny,nz
       
