@@ -246,10 +246,6 @@ class Multi_stand_runner():
     geom = Grid.load(self.geom_file)
     return np.min(geom.size/geom.cells)
 
-
-
-
-
   def copy_CA_output(self,path_to_CA,sample_folder,stand,time):
     """
     Copies the important data output from the CA code for safekeeping.
@@ -330,6 +326,67 @@ class Multi_stand_runner():
       p.poll()
     return p.poll()
 
+  def run_restart_DRX(self,inc,proc,freq):
+    """
+    Restart simulation after initial DRX trigger. 
+
+    Parameters
+    ----------
+    inc : str
+      Increment at which restart is done.
+    proc :int
+      Number of processors.
+    freq: int
+      Required output frequency
+    """
+    os.chdir(self.simulation_folder)
+    restart_geom = os.path.splitext(self.geom_file)[0] + '_regridded_{}.vtr'.format(inc)
+    restart_hdf  = os.path.splitext(self.restart_file)[0] + '_regridded_{}_CA.hdf5'.format(inc) 
+    copy(restart_geom,self.geom_file)
+    copy(restart_hdf, self.restart_file)
+    self.time_for_CA = 0.0
+    cmd = 'mpiexec -n {} DAMASK_grid -l {} -g {} -r {}'.format(proc,self.load_file,self.geom_file,inc.split('inc')[1])
+    with open('check.txt','w') as f:
+      P = subprocess.Popen(shlex.split(cmd),stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+      r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0') 
+      record = []
+      growth_length = 0.0
+      while P.poll() is None:
+        for count,line in enumerate(iter(P.stdout.readline, b'')):
+          record.append(line.decode('utf-8'))
+          #if re.search(r2,record[-1]):
+          #  P.send_signal(signal.SIGSTOP)
+          #  copy(self.job_file,'{}'.format(self.tmp))  #copying initial file to use it as replacement
+          #  P.send_signal(signal.SIGCONT)
+
+          if re.search(r, record[-1]):
+            P.send_signal(signal.SIGSTOP)
+            print(record[-1])
+            velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),self.casipt_input)  #needs G, b and mobility  
+            print('velocity after trigger',velocity)
+            growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
+            self.time_for_CA = self.time_for_CA + self.calc_timeStep(record[-1])
+            print(growth_length)
+            self.file_transfer(record[-1],freq)
+            if growth_length >= self.get_min_resolution():
+            #  print(record[-1])
+              #P.send_signal(signal.SIGUSR1)
+              P.send_signal(signal.SIGUSR2)
+              # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
+              for children in psutil.Process(P.pid).children(recursive=True):
+                print(children)
+                if children.name() == 'DAMASK_grid':
+                  children.terminate()
+              gone, alive = psutil.wait_procs(psutil.Process(P.pid).children(recursive=True), timeout=10)
+              print('alive',alive)
+              P.send_signal(signal.SIGCONT)
+            else:
+              P.send_signal(signal.SIGCONT)
+      for line in record:
+        f.write(line)
+      return P.poll()
+    
+ 
 # copy output files to avoid issues
   def copy_output(self,stand,simulation_folder,sample_folder,job_file,restart_file,geom_file,load_file,config_file,extra_config,sta_file,make_dir = True):
   
@@ -420,6 +477,33 @@ class Multi_stand_runner():
     d.add_calculation('tot_density','np.sum((np.sum(#rho_mob#,1),np.sum(#rho_dip#,1)),0)')
     d.add_calculation('r_s',"40/np.sqrt(#tot_density#)")
 
+# initial processing
+  def Initial_processing_DRX(self,job_file,simulation_folder,inc):
+    """
+    Initial post processing required for DRX simulations.
+    Needs the remeshed original orientation data to calculate reorientation.
+    
+    Parameters
+    ----------
+    job_file : str
+      Name of the damask output file to be processed.
+    simulation_folder : str
+      Name of the simulation folder where the job file exists.
+    inc : int
+      Increment for regridding original orientations
+
+    """
+    import damask 
+    from damask import Orientation
+    os.chdir(simulation_folder)
+    d = damask.Result(job_file)
+    orientation0 = np.loadtxt(simulation_folder + '/postProc/remesh_Initial_orientation_{}.txt'.format(inc),usecols=(3,4,5,6))
+    orientation0 = Orientation(orientation0) 
+    d.add_grainrotation(orientation0,degrees=True,with_axis=False,without_rigid_rotation=True)
+    #d.add_Eulers('orientation')
+    d.add_calculation('tot_density','np.sum((np.sum(#rho_mob#,1),np.sum(#rho_dip#,1)),0)')
+    d.add_calculation('r_s',"40/np.sqrt(#tot_density#)")
+
 # prepare for re-gridding
 
   def regridding_processing(self,geom_file,load_file):
@@ -480,6 +564,49 @@ class Multi_stand_runner():
     root.find('mvInitialDislocationDensity').text = str(rho_mob_0 + rho_dip_0)
     tree.write(filename)
     
+  def modify_geom_attributes(self):
+    """
+    Modifies the attributes associated with group geometry in hdf5 file. 
+    This is needed when a simulation is restarted with newer geometry.
+
+    """
+    from damask import Grid
+    os.chdir(self.simulation_folder)
+    new_geom = Grid.load(self.geom_file)
+    with h5py.File(self.job_file) as f:
+      f['geometry'].attrs['cells'] = new_geom.cells.astype(np.int32)
+      f['geometry'].attrs['size']  = new_geom.size
+      
+  def modify_mapping(self):
+    """
+    Modify the datasets of group mapping in hdf5 file. 
+    This is needed when a simulation is restarted with newer geometry.
+
+    """
+    from damask import Grid
+    os.chdir(self.simulation_folder)
+    new_geom = Grid.load(self.geom_file)
+    new_len = np.prod(new_geom.cells)
+
+    d = damask.Result(self.job_file)
+    phase = d.phases[0]
+    homogenizations = d.homogenizations[0]
+
+    f = h5py.File(self.job_file)
+    comp_type_phase = np.dtype(f['mapping']['phase'].dtype) 
+    comp_type_homog = np.dtype(f['mapping']['homogenization'].dtype) 
+
+    del f['mapping']
+    phase_array = np.array([(bytes('{}'.format(phase).encode()),1)]*new_len,dtype=comp_type_phase)
+    phase_array['Position'] = np.arange(new_len)
+
+    homog_array = np.array([(bytes('{}'.format(homogenizations).encode()),1)]*new_len,dtype=comp_type_homog)
+    homog_array['Position'] = np.arange(new_len)
+
+    f.create_dataset('mapping/phase',dtype=comp_type_phase,shape=(new_len,1),data=phase_array)
+    f.create_dataset('mapping/homogenization',dtype=comp_type_homog,shape=(new_len,1),data=homog_array)
+    
+
   def perform_CA(self,input_settings):
     """
     Starts a CA simulation.
