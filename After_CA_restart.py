@@ -397,6 +397,7 @@ class CASIPT_postprocessing():
     for p in phase_name: 
       f.create_group('phase/{}'.format(p))
 
+# -------------------------------------------------------------------------------------------------------------------------------
       for i in values_in_phase:
         data_array = np.zeros((totalsize,) + np.shape(hdf[f'/phase/{p}/' + i])[1:])
         data_array[:] = np.array(hdf[f'/phase/{p}/' + i])[nbr_array]

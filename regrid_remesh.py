@@ -103,10 +103,14 @@ class Remesh_for_CA():
     d = damask.Result(rg.h5OutputName_0 + '.hdf5')
     phase_name = d.phases 
     d.view('increments',f'inc{inc}')
-    d.get_dataset_location('O')
     orientations = d.read_dataset(d.get_dataset_location('O'))
     ### grain rotation
     grain_rotation = d.read_dataset(d.get_dataset_location('reorientation'))
+    print('location',d.get_dataset_location('reorientation'))
+    print('grain rot value',grain_rotation)
+    print('grain rotation',grain_rotation.shape)
+    print('nearest NN array',rg.get_nearestNeighbors())
+    print('NN shape',rg.get_nearestNeighbors().shape)
     grain_rotation_rg = grain_rotation[rg.get_nearestNeighbors()]
     grain_rotation_rg_scalar = grain_rotation_rg
     mylist = []
@@ -163,25 +167,25 @@ class Remesh_for_CA():
                                                 "{:.12f}".format,"{:.8f}".format,"{:.8f}".format, \
                                                 "{:.8f}".format],index=False)
     
-    #--------------------------------
-    # make df for initial orientation
-    #--------------------------------
-    df_init = pd.DataFrame()
-    df_init['x'] = Cell_coords[:,0]
-    df_init['y'] = Cell_coords[:,1]
-    df_init['z'] = Cell_coords[:,2]
+    ##--------------------------------
+    ## make df for initial orientation
+    ##--------------------------------
+    #df_init = pd.DataFrame()
+    #df_init['x'] = Cell_coords[:,0]
+    #df_init['y'] = Cell_coords[:,1]
+    #df_init['z'] = Cell_coords[:,2]
 
-    # open the dataset from initial increment
-    d.view('increments',f'inc0')
-    orientation_0 = d.read_dataset(d.get_dataset_location('O'))
-    orientation_0_rg = orientation_0[rg.get_nearestNeighbors()]
-    df_init['q0'] = orientation_0_rg[:,0] 
-    df_init['q1'] = orientation_0_rg[:,1] 
-    df_init['q2'] = orientation_0_rg[:,2] 
-    df_init['q3'] = orientation_0_rg[:,3] 
-    
-    #df_init.to_csv('postProc/Initial_orientation_regridded_inc{}'.format(inc),index=False,header=False)
-    np.savetxt('postProc/Initial_orientation_regridded_inc{}.txt'.format(inc),df_init.values)
+    ## open the dataset from initial increment
+    #with h5py.File(rg.h5OutputName_0 + '.hdf5') as f:
+    #  orientation_0 = np.array(f['/inc0/phase/{}/mechanics/O'.format(phase_name[0])]) 
+    #orientation_0_rg = orientation_0[rg.get_nearestNeighbors()]
+    #df_init['q0'] = orientation_0_rg[:,0] 
+    #df_init['q1'] = orientation_0_rg[:,1] 
+    #df_init['q2'] = orientation_0_rg[:,2] 
+    #df_init['q3'] = orientation_0_rg[:,3] 
+    #
+    ##df_init.to_csv('postProc/Initial_orientation_regridded_inc{}'.format(inc),index=False,header=False)
+    #np.savetxt('postProc/Initial_orientation_regridded_inc{}.txt'.format(inc),df_init.values)
    
     #create a hdf5 file
     #new_hdf_name = 'new_' + rg.h5OutputName_0 + 'inc' + str(inc) + '.hdf5'
@@ -290,6 +294,191 @@ class Remesh_for_CA():
                header='{} {}'.format(str(len(new_data)),str(int(np.max(data[:,3])))),comments='')
 
     # extra for remeshing original orientation
+    #data_for_ori = np.loadtxt('postProc/Initial_orientation_regridded_inc{}.txt'.format(\
+    #                          os.path.basename(os.path.splitext(filename)[0]).split('inc')[1]),usecols=(3,4,5,6))
+    #print(data_for_ori.shape)
+    #new_data_for_ori = np.zeros((len(new_coords),7))
+    #new_data_for_ori[:,0:3] = new_coords
+    #new_data_for_ori[:,3:7] = griddata(data[:,0:3],data_for_ori[:,0:4],new_data_for_ori[:,0:3],method='nearest')
+
+    #np.savetxt('postProc/remesh_Initial_orientation_inc{}.txt'.format(\
+    #           os.path.basename(os.path.splitext(filename)[0]).split('inc')[1]),\
+    #           new_data_for_ori)#,fmt = ' '.join(['%.10e']*3  + ['%.10f']*4))
+
+    return nx,ny,nz
+      
+  def regrid_Initial_ori0(self,geom,load,inc,folder):
+    """
+    regrid the initial orientation for restart after the first trigger.
+
+    Parameters
+    ----------
+    geom : str
+      Name of the geom file
+    load : str
+      Name of the load file
+    inc : int
+      Increment for which regridding is being done
+    folder : str
+      Path to the folder
+    """ 
+
+    isElastic = False
+    scale = 1.0
+    grid = False 
+    os.chdir(folder)
+
+    rg = geom_regridder(geom,load,increment=inc)
+    rg.regrid_geom()
+  
+    self.new_size = rg.sizeRVE_regrid
+    self.new_grid = rg.gridSeeds_regrid
+   
+    # Building the new coordinates
+    elem0 = int(rg.gridSeeds_0.prod())
+    elem_rg = int(rg.gridSeeds_regrid.prod())
+    
+    New_RVE_size = rg.sizeRVE_regrid
+    new_grid_cell = rg.gridSeeds_regrid
+    origin0 = rg.originRVE_0
+    Cell_coords = rg.gridCoords_cell_regrid   #or it should be after the periodic shift??
+    print(Cell_coords.shape)
+
+    ##------------------------------------------
+    ## reading main inputs for processing
+    #out5 = output_reader(hdf5_name)
+    #inc, inc_key = out5.make_incerement(inc)
+    ## reading main inputs
+    d = damask.Result(rg.h5OutputName_0 + '.hdf5')
+    phase_name = d.phases 
+
+    #--------------------------------
+    # make df for initial orientation
+    #--------------------------------
+    df_init = pd.DataFrame()
+    df_init['x'] = Cell_coords[:,0]
+    df_init['y'] = Cell_coords[:,1]
+    df_init['z'] = Cell_coords[:,2]
+
+    # open the dataset from initial increment
+    with h5py.File(rg.h5OutputName_0 + '.hdf5') as f:
+      orientation_0 = np.array(f['/inc0/phase/{}/mechanics/O'.format(phase_name[0])]) 
+    orientation_0_rg = orientation_0[rg.get_nearestNeighbors()]
+    df_init['q0'] = orientation_0_rg[:,0] 
+    df_init['q1'] = orientation_0_rg[:,1] 
+    df_init['q2'] = orientation_0_rg[:,2] 
+    df_init['q3'] = orientation_0_rg[:,3] 
+    
+    #df_init.to_csv('postProc/Initial_orientation_regridded_inc{}'.format(inc),index=False,header=False)
+    np.savetxt('postProc/Initial_orientation_regridded_inc{}.txt'.format(inc),df_init.values)
+  
+  def regrid_Initial_ori_DRX(self,geom,load,inc,folder):
+    """
+    regrid the initial orientation for restart during DRX run.
+
+    Parameters
+    ----------
+    geom : str
+      Name of the geom file
+    load : str
+      Name of the load file
+    inc : list
+      Increment for which regridding is being done
+    folder : str
+      Path to the folder
+    """ 
+
+    isElastic = False
+    scale = 1.0
+    grid = False 
+    os.chdir(folder)
+
+    print(inc[-1])
+    rg = geom_regridder(geom,load,increment=inc[-1].split('inc')[1])
+    rg.regrid_geom()
+  
+    self.new_size = rg.sizeRVE_regrid
+    self.new_grid = rg.gridSeeds_regrid
+   
+    # Building the new coordinates
+    elem0 = int(rg.gridSeeds_0.prod())
+    elem_rg = int(rg.gridSeeds_regrid.prod())
+    
+    New_RVE_size = rg.sizeRVE_regrid
+    new_grid_cell = rg.gridSeeds_regrid
+    origin0 = rg.originRVE_0
+    Cell_coords = rg.gridCoords_cell_regrid   #or it should be after the periodic shift??
+    print(Cell_coords.shape)
+
+    ##------------------------------------------
+    ## reading main inputs for processing
+    #out5 = output_reader(hdf5_name)
+    #inc, inc_key = out5.make_incerement(inc)
+    ## reading main inputs
+    #d = damask.Result(rg.h5OutputName_0 + '.hdf5')
+    #phase_name = d.phases 
+
+    #--------------------------------
+    # make df for initial orientation
+    #--------------------------------
+    df_init = pd.DataFrame()
+    df_init['x'] = Cell_coords[:,0]
+    df_init['y'] = Cell_coords[:,1]
+    df_init['z'] = Cell_coords[:,2]
+
+    # open the dataset from initial increment
+    #with h5py.File(rg.h5OutputName_0 + '.hdf5') as f:
+    orientation_0 = np.loadtxt('postProc/remesh_Initial_orientation_{}.txt'.format(inc[-2]),usecols=(3,4,5,6)) 
+    orientation_0_rg = orientation_0[rg.get_nearestNeighbors()]
+    df_init['q0'] = orientation_0_rg[:,0] 
+    df_init['q1'] = orientation_0_rg[:,1] 
+    df_init['q2'] = orientation_0_rg[:,2] 
+    df_init['q3'] = orientation_0_rg[:,3] 
+    
+    #df_init.to_csv('postProc/Initial_orientation_regridded_inc{}'.format(inc),index=False,header=False)
+    np.savetxt('postProc/Initial_orientation_regridded_{}.txt'.format(inc[-1]),df_init.values)
+
+  def remesh_Initial_ori0(self,filename,unit,folder): 
+    """
+    Remeshes the initial orientation to equidistant grid.
+    
+    Parameters
+    ----------
+    filename : str 
+      file path
+    unit : float
+      Our units in comparison to DAMASK
+    folder : str
+      simulation folder
+    """ 
+    os.chdir('{}'.format(folder))
+    dx = np.min(self.new_size/self.new_grid)#*1E-06
+    print(dx)
+    unit_scale = unit
+    
+    is2d = 0 # 1 for 2D data
+    
+    data = np.loadtxt(filename)
+    min_x = unit_scale*np.min(data[:,0])
+    min_y = unit_scale*np.min(data[:,1])
+    min_z = unit_scale*np.min(data[:,2])
+
+    #shift coords to start from 0
+    data[:,0] = unit_scale*data[:,0] - min_x
+    data[:,1] = unit_scale*data[:,1] - min_y
+    data[:,2] = unit_scale*data[:,2] - min_z
+    
+    nx = int(round(np.max(data[:,0])/dx))
+    ny = int(round(np.max(data[:,1])/dx))
+    nz = int(round(np.max(data[:,2])/dx))
+    
+    x_new = np.mgrid[0:nx+1]*dx 
+    y_new = np.mgrid[0:ny+1]*dx 
+    z_new = np.mgrid[0:nz+1]*dx 
+    
+    new_coords = np.stack(np.meshgrid(x_new,y_new,z_new,indexing='ij'),axis=-1).reshape(((nx+1)*(ny+1)*(nz+1),3),order='F')
+    
+    # extra for remeshing original orientation
     data_for_ori = np.loadtxt('postProc/Initial_orientation_regridded_inc{}.txt'.format(\
                               os.path.basename(os.path.splitext(filename)[0]).split('inc')[1]),usecols=(3,4,5,6))
     print(data_for_ori.shape)
@@ -301,5 +490,3 @@ class Remesh_for_CA():
                os.path.basename(os.path.splitext(filename)[0]).split('inc')[1]),\
                new_data_for_ori)#,fmt = ' '.join(['%.10e']*3  + ['%.10f']*4))
 
-    return nx,ny,nz
-      
