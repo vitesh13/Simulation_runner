@@ -114,7 +114,7 @@ class Remesh_for_CA():
     grain_rotation_rg = grain_rotation[rg.get_nearestNeighbors()]
     grain_rotation_rg_scalar = grain_rotation_rg
     mylist = []
-    eulers = Orientation(orientations).as_Euler_angles(degrees=True)
+    eulers = Orientation(orientations).as_Euler_angles()
     eulers_rg = eulers[rg.get_nearestNeighbors()]
     ### dislocation density
     rho =  d.read_dataset(d.get_dataset_location('tot_density'))

@@ -10,7 +10,6 @@ from damask import ConfigMaterial as cm
 from damask import Rotation
 from damask import Orientation
 from damask import tensor
-from Fe_decomposition import Decompose
 
 #--------------------------------------------------------------------------
 Crystal_structures = {'fcc': 1,
@@ -301,7 +300,7 @@ class CASIPT_postprocessing():
     o[geom_label + '/DIMENSIONS'] = np.int64(np.array(grid_size))
     o[geom_label + '/ORIGIN']     = np.float32(np.zeros(3))
     #o[geom_label + '/SPACING']    = np.float32(np.array(dummy)*4)
-    o[geom_label + '/SPACING']    = np.float32(np.ones(3)*dx*1E6)
+    o[geom_label + '/SPACING']    = np.float32(np.ones(3)*dx*1E-6)
         
     o[geom_label].attrs['GeometryName']     = 'ImageGeometry'
     o[geom_label].attrs['GeometryTypeName'] = 'ImageGeometry'
@@ -319,7 +318,7 @@ class CASIPT_postprocessing():
       Path of the simulation_folder
     """
     ori = np.loadtxt('.texture_MDRX.txt',usecols=(4,6,8))
-    ori = Rotation.from_Euler_angles(ori,degrees=True).as_quaternion().reshape(-1,4)
+    ori = Rotation.from_Euler_angles(ori).as_quaternion().reshape(-1,4)
     base_config = cm.load('{}/material.yaml'.format(simulation_folder))
     phase = np.array([base_config['material'][1]['constituents'][0]['phase']]*len(ori))
     idx = np.arange(len(ori))
@@ -434,7 +433,7 @@ class CASIPT_postprocessing():
       for i in range(24):
         hdf_file['/phase/{}/omega'.format(phase_name)][:,i] = hdf_file['/phase/{}/omega'.format(phase_name)][:,i]*ratio # for BCC till 48, but for fcc till 24 only  
 
-      Re_0 = tensor.transpose(Rotation.from_Euler_angles(ori_after_CA,degrees=True).as_matrix())  #convert euler angles to rotation matrix
+      Re_0 = tensor.transpose(Rotation.from_Euler_angles(ori_after_CA).as_matrix())  #convert euler angles to rotation matrix
        
       data = hdf_file['/phase/{}/F_p'.format(phase_name)]
       data[...] = Re_0
