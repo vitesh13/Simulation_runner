@@ -7,6 +7,7 @@ import psutil
 import shlex
 from shutil import copyfile
 from shutil import copy
+from shutil import move
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as PyPlot
@@ -267,14 +268,14 @@ class Multi_stand_runner():
       os.makedirs('{}{}_stand/CA_files/{}'.format(sample_folder,stand,time))
     #os.mkdir('{}{}_stand/CA_files/{}'.format(sample_folder,stand,time))
     storage = '{}{}_stand/CA_files/{}'.format(sample_folder,stand,time)
-    copy('..ang','{}'.format(storage))
-    copy('._rho.txt','{}'.format(storage))
-    copy('.3D.geom','{}'.format(storage))
-    #copy(X.final.map.xy.dat','/nethome/v.shah/{}'.format(storage))
-    copy('.fractions.txt','{}'.format(storage))
-    copy('.MDRX.txt','{}'.format(storage))
-    copy('.texture_MDRX.txt','{}'.format(storage))
-    copy('.final.casipt','{}'.format(storage))
+    move('..ang','{}'.format(storage))
+    move('._rho.txt','{}'.format(storage))
+    move('.3D.geom','{}'.format(storage))
+    #move(X.final.map.xy.dat','/nethome/v.shah/{}'.format(storage))
+    move('.fractions.txt','{}'.format(storage))
+    move('.MDRX.txt','{}'.format(storage))
+    move('.texture_MDRX.txt','{}'.format(storage))
+    move('.final.casipt','{}'.format(storage))
     return '{}{}_stand/CA_files/{}'.format(sample_folder,stand,time)
 
 # modify the load file after CA
@@ -305,27 +306,45 @@ class Multi_stand_runner():
   
 
 # run restart simulation after CA
-  def run_restart_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,extra_config,restart_inc):
+  def run_restart_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,extra_config,restart_inc,proc):
     """
     Runs restart simulation after CA.
 
     Parameters
     ----------
-    restart_inc : int
+    restart_inc : str
       Number at which restart will start.
+    proc : int
+      Number of processors to be used.
     """
-    #os.chdir('/nethome/v.shah/{}/'.format(sample_folder))
-    #copy(geom_file, '/nethome/v.shah/{}/'.format(simulation_folder))
-    #copy(load_file,'/nethome/v.shah/{}/'.format(simulation_folder))  
-    #copy(config_file,'/nethome/v.shah/{}/'.format(simulation_folder))  
-    #copy(extra_config,'/nethome/v.shah/{}/'.format(simulation_folder))  
-    os.chdir('/nethome/v.shah/{}/'.format(simulation_folder))
-    cmd = 'DAMASK_spectral -l {} -g {} -r {} > check.txt'.format(load_file,geom_file,restart_inc)
+    os.chdir(simulation_folder)
+    copy(os.path.splitext(geom_file)[0] + '_regridded_{}.vtr'.format(restart_inc), geom_file)
+    copy(os.path.splitext(self.restart_file)[0] + '_regridded_{}_CA.hdf5'.format(restart_inc),self.restart_file)
+    cmd = 'mpiexec -n {} DAMASK_grid -l {} -g {} -r {} > check.txt'.format(proc,load_file,geom_file,restart_inc.split('inc')[1])
     p = subprocess.Popen(cmd,shell=True)
     while p.poll() == None:
       p.poll()
     return p.poll()
 
+  def run_restart_regridded(self,simulation_folder,geom_file,load_file,config_file,restart_inc,proc):
+    """
+    Runs restart simulation after a simple regridding.
+
+    Parameters
+    ----------
+    restart_inc : str
+      Number at which restart will start.
+    proc : int
+      Number of processors
+    """
+    os.chdir(simulation_folder)
+    copy(os.path.splitext(geom_file)[0] + '_regridded_{}.vtr'.format(restart_inc), geom_file)
+    copy(os.path.splitext(self.job_file)[0] + '_restart_regridded_{}.hdf5'.format(restart_inc),self.restart_file)
+    cmd = 'mpiexec -n {} DAMASK_grid -l {} -g {} -r {} > check.txt'.format(proc,load_file,geom_file,restart_inc.split('inc')[1])
+    p = subprocess.Popen(cmd,shell=True)
+    while p.poll() == None:
+      p.poll()
+    return p.poll()
   def run_restart_DRX(self,inc,proc,freq):
     """
     Restart simulation after initial DRX trigger. 
