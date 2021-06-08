@@ -1,4 +1,4 @@
-!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: UTF-8 no BOM -*-
 
 import os,re
@@ -369,7 +369,7 @@ class Multi_stand_runner():
       r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0') 
       growth_length = 0.0
       while P.poll() is None:
-        record = P.stdout.readline().decode('utf-8'))
+        record = P.stdout.readline().decode('utf-8')
 
         if re.search(r, record):
           P.send_signal(signal.SIGSTOP)
