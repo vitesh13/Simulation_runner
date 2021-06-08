@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+u!/usr/bin/env python3
 # -*- coding: UTF-8 no BOM -*-
 
 import os,re
@@ -367,41 +367,33 @@ class Multi_stand_runner():
     with open('check.txt','w') as f:
       P = subprocess.Popen(shlex.split(cmd),stdout = subprocess.PIPE, stderr = subprocess.PIPE)
       r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0') 
-      record = []
       growth_length = 0.0
       while P.poll() is None:
-        for count,line in enumerate(iter(P.stdout.readline, b'')):
-          record.append(line.decode('utf-8'))
-          #if re.search(r2,record[-1]):
-          #  P.send_signal(signal.SIGSTOP)
-          #  copy(self.job_file,'{}'.format(self.tmp))  #copying initial file to use it as replacement
-          #  P.send_signal(signal.SIGCONT)
+        record = P.stdout.readline().decode('utf-8'))
 
-          if re.search(r, record[-1]):
-            P.send_signal(signal.SIGSTOP)
-            print(record[-1])
-            velocity = self.calc_velocity(self.calc_delta_E(record[-1],32E9,2.5E-10),self.casipt_input)  #needs G, b and mobility  
-            print('velocity after trigger',velocity)
-            growth_length = growth_length + velocity*self.calc_timeStep(record[-1]) 
-            self.time_for_CA = self.time_for_CA + self.calc_timeStep(record[-1])
-            print(growth_length)
-            self.file_transfer(record[-1],freq)
-            if growth_length >= self.get_min_resolution():
-            #  print(record[-1])
-              #P.send_signal(signal.SIGUSR1)
-              P.send_signal(signal.SIGUSR2)
-              # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
-              for children in psutil.Process(P.pid).children(recursive=True):
-                print(children)
-                if children.name() == 'DAMASK_grid':
-                  children.terminate()
-              gone, alive = psutil.wait_procs(psutil.Process(P.pid).children(recursive=True), timeout=10)
-              print('alive',alive)
-              P.send_signal(signal.SIGCONT)
-            else:
-              P.send_signal(signal.SIGCONT)
-      for line in record:
-        f.write(line)
+        if re.search(r, record):
+          P.send_signal(signal.SIGSTOP)
+          print(record)
+          velocity = self.calc_velocity(self.calc_delta_E(record,32E9,2.5E-10),self.casipt_input)  #needs G, b and mobility  
+          print('velocity after trigger',velocity)
+          growth_length = growth_length + velocity*self.calc_timeStep(record) 
+          self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
+          print(growth_length)
+          self.file_transfer(record,freq)
+          if growth_length >= self.get_min_resolution():
+          #  print(record[-1])
+            #P.send_signal(signal.SIGUSR1)
+            P.send_signal(signal.SIGUSR2)
+            # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
+            for children in psutil.Process(P.pid).children(recursive=True):
+              print(children)
+              if children.name() == 'DAMASK_grid':
+                children.terminate()
+            gone, alive = psutil.wait_procs(psutil.Process(P.pid).children(recursive=True), timeout=10)
+            print('alive',alive)
+            P.send_signal(signal.SIGCONT)
+        else:
+          P.send_signal(signal.SIGCONT)
       return P.poll()
     
  
