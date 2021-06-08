@@ -1,4 +1,4 @@
-u!/usr/bin/env python3
+!/usr/bin/env python3
 # -*- coding: UTF-8 no BOM -*-
 
 import os,re
