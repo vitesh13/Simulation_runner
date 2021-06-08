@@ -345,6 +345,7 @@ class Multi_stand_runner():
     while p.poll() == None:
       p.poll()
     return p.poll()
+
   def run_restart_DRX(self,inc,proc,freq):
     """
     Restart simulation after initial DRX trigger. 
