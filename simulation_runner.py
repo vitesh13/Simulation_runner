@@ -111,12 +111,24 @@ class Multi_stand_runner():
       while P.poll() is None:
         record = P.stdout.readline().decode('utf-8') 
         if re.search(r2,record):
-          P.send_signal(signal.SIGSTOP)
+          for children in psutil.Process(P.pid).children(recursive=True):
+            #print(children)
+            if children.name() == 'DAMASK_grid':
+              children.suspend()
+          #P.send_signal(signal.SIGSTOP)
           copy(self.job_file,'{}'.format(self.tmp))  #copying initial file to use it as replacement
-          P.send_signal(signal.SIGCONT)
+          for children in psutil.Process(P.pid).children(recursive=True):
+            #print(children)
+            if children.name() == 'DAMASK_grid':
+              children.resume()
+          #P.send_signal(signal.SIGCONT)
 
         if re.search(r, record):
-          P.send_signal(signal.SIGSTOP)
+          for children in psutil.Process(P.pid).children(recursive=True):
+            #print(children)
+            if children.name() == 'DAMASK_grid':
+              children.suspend()
+          #P.send_signal(signal.SIGSTOP)
           print(record)
           velocity = self.calc_velocity(self.calc_delta_E(record,32E9,2.5E-10),self.casipt_input)  #needs G, b and mobility  
           growth_length = growth_length + velocity*self.calc_timeStep(record) 
@@ -132,10 +144,18 @@ class Multi_stand_runner():
               print(children)
               if children.name() == 'DAMASK_grid':
                 children.terminate()
-            P.send_signal(signal.SIGCONT)
+            for children in psutil.Process(P.pid).children(recursive=True):
+              #print(children)
+              if children.name() == 'DAMASK_grid':
+                children.resume()
+            #P.send_signal(signal.SIGCONT)
           else:
             print("continuing")
-            P.send_signal(signal.SIGCONT)
+            for children in psutil.Process(P.pid).children(recursive=True):
+              #print(children)
+              if children.name() == 'DAMASK_grid':
+                children.resume()
+            #P.send_signal(signal.SIGCONT)
             print("continued")
       return P.poll()
 
@@ -246,8 +266,10 @@ class Multi_stand_runner():
     rho_dip = d.read_dataset([path.split('rho_mob')[0] + 'rho_dip'])
     tot_rho_array = np.sum((np.sum(rho_mob,1),np.sum(rho_dip,1)),0)
     max_rho = np.max(tot_rho_array)
-    avg_rho = np.average(tot_rho_array)
-    diff_rho = max_rho - avg_rho
+    #avg_rho = np.average(tot_rho_array)
+    min_rho = np.min(tot_rho_array)
+    #diff_rho = max_rho - avg_rho
+    diff_rho = max_rho - min_rho
     austenite_mv = 0.0000073713716  # austenite molar volume
      
     print(diff_rho)
@@ -439,7 +461,11 @@ class Multi_stand_runner():
         record = P.stdout.readline().decode('utf-8')
 
         if re.search(r, record):
-          P.send_signal(signal.SIGSTOP)
+          for children in psutil.Process(P.pid).children(recursive=True):
+            #print(children)
+            if children.name() == 'DAMASK_grid':
+              children.suspend()
+          #P.send_signal(signal.SIGSTOP)
           print(record)
           velocity = self.calc_velocity(self.calc_delta_E(record,32E9,2.5E-10),self.casipt_input)  #needs G, b and mobility  
           print('velocity after trigger',velocity)
@@ -458,9 +484,17 @@ class Multi_stand_runner():
                 children.terminate()
             gone, alive = psutil.wait_procs(psutil.Process(P.pid).children(recursive=True), timeout=10)
             print('alive',alive)
-            P.send_signal(signal.SIGCONT)
+            for children in psutil.Process(P.pid).children(recursive=True):
+              #print(children)
+              if children.name() == 'DAMASK_grid':
+                children.resume()
+            #P.send_signal(signal.SIGCONT)
         else:
-          P.send_signal(signal.SIGCONT)
+          for children in psutil.Process(P.pid).children(recursive=True):
+            #print(children)
+            if children.name() == 'DAMASK_grid':
+              children.resume()
+          #P.send_signal(signal.SIGCONT)
       return P.poll()
     
   def run_restart_DRX_no_MPI(self,inc,proc,freq):
