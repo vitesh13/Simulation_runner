@@ -136,6 +136,73 @@ class Multi_stand_runner():
           else:
             print("continuing")
             P.send_signal(signal.SIGCONT)
+            print("continued")
+      return P.poll()
+
+  def run_and_monitor_simulation_no_MPI(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc,freq):
+    """
+    Runs and monitors a fresh simulation.
+    Will return negative value if terminated bz signals.
+
+    Parameters
+    ----------
+    simulation_folder: str
+      Full path to the folder where the simulation is performed
+    sample_folder: str
+      Full path to folder where the results/config files are stored
+    geom_file: str
+      Name of the geom file
+    load_file: str
+      Name of the load file
+    config_file: str
+      Name of the config (yaml) file.
+    proc : int
+      Number of processors to be used.
+    freq: int
+      Required output frequency
+    """
+    self.time_for_CA = 0.0
+    os.chdir('{}'.format(sample_folder))
+    copy(geom_file, '{}'.format(simulation_folder))
+    copy(load_file,'{}'.format(simulation_folder))  
+    copy(config_file,'{}'.format(simulation_folder))  
+    os.chdir('{}'.format(simulation_folder))
+    cmd = 'DAMASK_grid -l {} -g {}'.format(load_file,geom_file)
+    with open('check.txt','w') as f:
+      P = subprocess.Popen(shlex.split(cmd),stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+      r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0',re.U) 
+      r2 = re.compile(' ... wrote initial configuration',re.U)
+      record = []
+      growth_length = 0.0
+      while P.poll() is None:
+        record = P.stdout.readline().decode('utf-8') 
+        if re.search(r2,record):
+          P.send_signal(signal.SIGSTOP)
+          copy(self.job_file,'{}'.format(self.tmp))  #copying initial file to use it as replacement
+          P.send_signal(signal.SIGCONT)
+
+        if re.search(r, record):
+          P.send_signal(signal.SIGSTOP)
+          print(record)
+          velocity = self.calc_velocity(self.calc_delta_E(record,32E9,2.5E-10),self.casipt_input)  #needs G, b and mobility  
+          growth_length = growth_length + velocity*self.calc_timeStep(record) 
+          self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
+          print(growth_length)
+          self.file_transfer(record,freq)
+          if growth_length >= self.get_min_resolution():
+            print(record)
+            #P.send_signal(signal.SIGUSR1)  #keeping this signal off for now
+            P.send_signal(signal.SIGUSR2)
+            # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
+            for children in psutil.Process(P.pid).children(recursive=True):
+              print(children)
+              if children.name() == 'DAMASK_grid':
+                children.terminate()
+            P.send_signal(signal.SIGCONT)
+          else:
+            print("continuing")
+            P.send_signal(signal.SIGCONT)
+            print("continued")
       return P.poll()
 
   def file_transfer(self,inc_string,freq):
@@ -396,6 +463,57 @@ class Multi_stand_runner():
           P.send_signal(signal.SIGCONT)
       return P.poll()
     
+  def run_restart_DRX_no_MPI(self,inc,proc,freq):
+    """
+    Restart simulation after initial DRX trigger. 
+
+    Parameters
+    ----------
+    inc : str
+      Increment at which restart is done.
+    proc :int
+      Number of processors.
+    freq: int
+      Required output frequency
+    """
+    os.chdir(self.simulation_folder)
+    restart_geom = os.path.splitext(self.geom_file)[0] + '_regridded_{}.vtr'.format(inc)
+    restart_hdf  = os.path.splitext(self.restart_file)[0] + '_regridded_{}_CA.hdf5'.format(inc) 
+    copy(restart_geom,self.geom_file)
+    copy(restart_hdf, self.restart_file)
+    self.time_for_CA = 0.0
+    cmd = 'DAMASK_grid -l {} -g {} -r {}'.format(self.load_file,self.geom_file,inc.split('inc')[1])
+    with open('check.txt','w') as f:
+      P = subprocess.Popen(shlex.split(cmd),stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+      r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0') 
+      growth_length = 0.0
+      while P.poll() is None:
+        record = P.stdout.readline().decode('utf-8')
+
+        if re.search(r, record):
+          P.send_signal(signal.SIGSTOP)
+          print(record)
+          velocity = self.calc_velocity(self.calc_delta_E(record,32E9,2.5E-10),self.casipt_input)  #needs G, b and mobility  
+          print('velocity after trigger',velocity)
+          growth_length = growth_length + velocity*self.calc_timeStep(record) 
+          self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
+          print(growth_length)
+          self.file_transfer(record,freq)
+          if growth_length >= self.get_min_resolution():
+          #  print(record[-1])
+            #P.send_signal(signal.SIGUSR1)
+            P.send_signal(signal.SIGUSR2)
+            # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
+            for children in psutil.Process(P.pid).children(recursive=True):
+              print(children)
+              if children.name() == 'DAMASK_grid':
+                children.terminate()
+            gone, alive = psutil.wait_procs(psutil.Process(P.pid).children(recursive=True), timeout=10)
+            print('alive',alive)
+            P.send_signal(signal.SIGCONT)
+        else:
+          P.send_signal(signal.SIGCONT)
+      return P.poll()
  
 # copy output files to avoid issues
   def copy_output(self,stand,simulation_folder,sample_folder,job_file,restart_file,geom_file,load_file,config_file,extra_config,sta_file,make_dir = True):
