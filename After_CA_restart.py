@@ -226,6 +226,7 @@ class CASIPT_postprocessing():
     dx : float
       The grid spacing.
     """
+    os.chdir(self.CA_folder)
     #--------------------------------------------------------------------------
     #Build array of euler angles for each cell
     #--------------------------------------------------------------------------
@@ -235,7 +236,8 @@ class CASIPT_postprocessing():
     with open(self.CA_geom,'r') as f:
       grid_size = f.readline().split()[2:7:2] #read only first line
 
-    grid_size = np.array(grid_size)
+    grid_size = np.array(grid_size,dtype=np.int32)
+    print(type(grid_size))
 
     #--------------------------------------------------------------------------
     o = h5py.File('CA_output.dream3D','w')
@@ -277,14 +279,14 @@ class CASIPT_postprocessing():
     # Create EnsembleAttributeMatrix
     ensemble_label = data_container_label + '/CellEnsembleData'
 
-    # Attributes Ensemble Matrix
-    o[ensemble_label].attrs['AttributeMatrixType'] = np.array([11],np.uint32)
-    o[ensemble_label].attrs['TupleDimensions']     = np.array([2], np.uint64)
-
     # Data CrystalStructures
     o[ensemble_label + '/CrystalStructures'] = np.uint32(np.array([999,1]))
     #                                                Crystal_structures[f.get_crystal_structure()]])).reshape((2,1))
     o[ensemble_label + '/PhaseTypes']        = np.uint32(np.array([999,Phase_types['Primary']])).reshape((2,1))
+
+    # Attributes Ensemble Matrix
+    o[ensemble_label].attrs['AttributeMatrixType'] = np.array([11],np.uint32)
+    o[ensemble_label].attrs['TupleDimensions']     = np.array([2], np.uint64)
 
     # Attributes for data in Ensemble matrix
     for group in ['CrystalStructures','PhaseTypes']: # 'PhaseName' not required MD: But would be nice to take the phase name mapping
@@ -300,7 +302,7 @@ class CASIPT_postprocessing():
     o[geom_label + '/DIMENSIONS'] = np.int64(np.array(grid_size))
     o[geom_label + '/ORIGIN']     = np.float32(np.zeros(3))
     #o[geom_label + '/SPACING']    = np.float32(np.array(dummy)*4)
-    o[geom_label + '/SPACING']    = np.float32(np.ones(3)*dx*1E-6)
+    o[geom_label + '/SPACING']    = np.float32(np.ones(3)*dx)
         
     o[geom_label].attrs['GeometryName']     = 'ImageGeometry'
     o[geom_label].attrs['GeometryTypeName'] = 'ImageGeometry'
