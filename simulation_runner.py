@@ -394,7 +394,7 @@ class Multi_stand_runner():
   
 
 # run restart simulation after CA
-  def run_restart_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,extra_config,restart_inc,proc):
+  def run_restart_simulation(self,simulation_folder,geom_file,load_file,config_file,restart_inc,proc):
     """
     Runs restart simulation after CA.
 
