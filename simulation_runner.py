@@ -360,6 +360,7 @@ class Multi_stand_runner():
     move('.3D.geom','{}'.format(storage))
     #move(X.final.map.xy.dat','/nethome/v.shah/{}'.format(storage))
     move('.fractions.txt','{}'.format(storage))
+    move('.growth_lengths.txt','{}'.format(storage))
     move('.MDRX.txt','{}'.format(storage))
     move('.texture_MDRX.txt','{}'.format(storage))
     move('.final.casipt','{}'.format(storage))
