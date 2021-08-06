@@ -667,23 +667,6 @@ class Multi_stand_runner():
     d.add_calculation('tot_density','np.sum((np.sum(#rho_mob#,1),np.sum(#rho_dip#,1)),0)')
     d.add_calculation('r_s',"40/np.sqrt(#tot_density#)")
 
-# prepare for re-gridding
-
-  def regridding_processing(self,geom_file,load_file):
-    """
-    Prepare data for regridding and perform regridding.
- 
-    Parameters
-    ----------
-    geom_file : str
-      Name of the geom file
-    load_file : str
-      Name of the load file
-
-    """
-    
-    subprocess.run(shlex.split('regrid -g {} -l {}'.format(geom_file,load_file)))
-    
 # modify the CA xml file
   def modify_CA_setting(self,filename,T,grid,delta_t,dx,start_file,basefn):
     """
@@ -1003,13 +986,54 @@ class Grain_rotation_history():
     Parameters
     ----------
     casipt_file : str
-      Name of output file containing nucleation info.
+      Path of output file containing nucleation info.
+      Generally, .MDRX.txt is the name.
     """
     
     nucleation_info = np.loadtxt(casipt_file, usecols=(1))
 
     return nucleation_info
 
+  def read_CASIPT_orientation(self,ang_file):
+    """
+    Read the orientation from the ..ang file generated from CASIPT simulation.
+
+    Parameters
+    ----------
+    ang_file : str
+      Path of file that contains the orientations of each point fronm CASIPT simulation.
+      Generally, ..ang.txt is the name.
+    """
+    orientation_casipt = np.loadtxt(ang_file)
+
+    return orientation_casipt
+
+  def modify_initial_orientation_file(self,initial_ori_file,casipt_file,ang_file):
+    """  
+    Uses the nucleation info and casipt orientations to reset the orientations of the transformed points to
+    the current casipt orientations. 
+    The transformed points at that casipt stage should have no accumulated rotation. 
+    From the transformation point on, the calculation of the rotation is started from this point of time. 
+    Therefore, the initial orientation should be modified to current orientation for the transformed points.
+    
+    Parameters
+    ----------
+    initial_ori_file : str
+      Path of the file which contains initial orientations.
+      Generally named as remesh_geomname_loadname_inc.txt
+    casipt_file : str
+      Path of output file containing nucleation info.
+      Generally, .MDRX.txt is the name.
+    ang_file : str
+      Path of file that contains the orientations of each point fronm CASIPT simulation.
+      Generally, ..ang.txt is the name.
+    """
+    from damask import Rotation 
+    init_ori = np.loadtxt(initial_ori_file)
+    indices_RX = self.get_nucleation_info(icasipt_file) 
+    init_ori[indices_RX,3:7] = Rotation.from_Euler_angles(self.read_CASIPT_orientation(ang_file)[indices_RX,:]).as_quaternion()
+    np.savetxt(initial_ori_file)
+    
   def modify_rotation(self,casipt_file):
     """  
     Uses the nucleation info and different rotations to calculate the cummulative rotations.
