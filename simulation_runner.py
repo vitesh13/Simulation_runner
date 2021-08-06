@@ -998,7 +998,7 @@ class Grain_rotation_history():
 
   def get_nucleation_info(self,casipt_file):
     """
-    The function reads a casipt output file resMDRX.MDRX. 
+    Get the indices where the MDRX nuclei have appeared and have grown in that CA ste. 
     
     Parameters
     ----------
@@ -1006,9 +1006,7 @@ class Grain_rotation_history():
       Name of output file containing nucleation info.
     """
     
-    nucleation_info = np.loadtxt(casipt_file, usecols=(1,3,5,7,9))
-    if nucleation_info.shape[0] != 0:
-      nucleation_info[:,2:5] = nucleation_info[:,2:5]*math.pi/180.0
+    nucleation_info = np.loadtxt(casipt_file, usecols=(1))
 
     return nucleation_info
 
