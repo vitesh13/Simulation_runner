@@ -527,7 +527,7 @@ class Multi_stand_runner():
     cmd = 'DAMASK_grid -l {} -g {} -r {}'.format(self.load_file,self.geom_file,inc.split('inc')[1])
     with open('check.txt','w') as f:
       P = subprocess.Popen(shlex.split(cmd),stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-      r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0') 
+      r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0',re.U) 
       growth_length = 0.0
       while P.poll() is None:
         record = P.stdout.readline().decode('utf-8')
@@ -546,12 +546,7 @@ class Multi_stand_runner():
             #P.send_signal(signal.SIGUSR1)
             P.send_signal(signal.SIGUSR2)
             # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
-            for children in psutil.Process(P.pid).children(recursive=True):
-              print(children)
-              if children.name() == 'DAMASK_grid':
-                children.terminate()
-            gone, alive = psutil.wait_procs(psutil.Process(P.pid).children(recursive=True), timeout=10)
-            print('alive',alive)
+            P.send_signal(signal.SIGTERM)
             P.send_signal(signal.SIGCONT)
         else:
           P.send_signal(signal.SIGCONT)
