@@ -225,7 +225,7 @@ class Multi_stand_runner():
             print("continued")
       return P.poll()
 
-  def file_transfer(self,inc_string,freq):
+  def file_transfer(self,inc_string,freq,inc='inc1'):
     """
     Moves around the result file to avoid too many increments. 
 
@@ -235,12 +235,17 @@ class Multi_stand_runner():
       String of type 'increment [0-9]+ converged.
     freq: int
       Required output frequency
+    inc : str
+      increment at which DRX restart happened.
     """
     converged_inc = int(re.search('[0-9]+',inc_string).group())
     if (converged_inc)%freq == 0:
       copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
     if (converged_inc - 1)%freq == 0:
       copy(self.job_file,'{}'.format(self.tmp))
+    if converged_inc == int(inc.split('inc')[1]) + 2:
+      copy(self.job_file,'{}'.format(self.tmp))
+
 
   def calc_delta_E(self,inc_string,G,b):
     """
@@ -452,11 +457,12 @@ class Multi_stand_runner():
     restart_hdf  = os.path.splitext(self.restart_file)[0] + '_regridded_{}_CA.hdf5'.format(inc) 
     copy(restart_geom,self.geom_file)
     copy(restart_hdf, self.restart_file)
+    copy(self.job_file,'{}'.format(self.tmp))                          # recording the increment at which the simulation triggered
     self.time_for_CA = 0.0
     cmd = 'mpiexec -n {} DAMASK_grid -l {} -g {} -r {}'.format(proc,self.load_file,self.geom_file,inc.split('inc')[1])
     with open('check.txt','w') as f:
       P = subprocess.Popen(shlex.split(cmd),stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-      r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0') 
+      r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0',re.U) 
       growth_length = 0.0
       while P.poll() is None:
         record = P.stdout.readline().decode('utf-8')
@@ -473,7 +479,7 @@ class Multi_stand_runner():
           growth_length = growth_length + velocity*self.calc_timeStep(record) 
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
-          self.file_transfer(record,freq)
+          self.file_transfer(record,freq,inc)
           if growth_length >= self.get_min_resolution():
           #  print(record[-1])
             #P.send_signal(signal.SIGUSR1)
@@ -483,8 +489,8 @@ class Multi_stand_runner():
               print(children)
               if children.name() == 'DAMASK_grid':
                 children.terminate()
-            gone, alive = psutil.wait_procs(psutil.Process(P.pid).children(recursive=True), timeout=10)
-            print('alive',alive)
+            #gone, alive = psutil.wait_procs(psutil.Process(P.pid).children(recursive=True), timeout=10)
+            #print('alive',alive)
             for children in psutil.Process(P.pid).children(recursive=True):
               #print(children)
               if children.name() == 'DAMASK_grid':
@@ -516,6 +522,7 @@ class Multi_stand_runner():
     restart_hdf  = os.path.splitext(self.restart_file)[0] + '_regridded_{}_CA.hdf5'.format(inc) 
     copy(restart_geom,self.geom_file)
     copy(restart_hdf, self.restart_file)
+    copy(self.job_file,'{}'.format(self.tmp))                          # recording the increment at which the simulation triggered
     self.time_for_CA = 0.0
     cmd = 'DAMASK_grid -l {} -g {} -r {}'.format(self.load_file,self.geom_file,inc.split('inc')[1])
     with open('check.txt','w') as f:
@@ -533,7 +540,7 @@ class Multi_stand_runner():
           growth_length = growth_length + velocity*self.calc_timeStep(record) 
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
-          self.file_transfer(record,freq)
+          self.file_transfer(record,freq,inc)
           if growth_length >= self.get_min_resolution():
           #  print(record[-1])
             #P.send_signal(signal.SIGUSR1)
@@ -990,7 +997,7 @@ class Grain_rotation_history():
       Generally, .MDRX.txt is the name.
     """
     
-    nucleation_info = np.loadtxt(casipt_file, usecols=(1))
+    nucleation_info = np.loadtxt(casipt_file, dtype = np.int, usecols=(1))
 
     return nucleation_info
 
@@ -1008,7 +1015,7 @@ class Grain_rotation_history():
 
     return orientation_casipt
 
-  def modify_initial_orientation_file(self,initial_ori_file,casipt_file,ang_file):
+  def modify_initial_orientation_file(self,initial_ori_file,casipt_file,ang_file,CA_input_file):
     """  
     Uses the nucleation info and casipt orientations to reset the orientations of the transformed points to
     the current casipt orientations. 
@@ -1024,15 +1031,26 @@ class Grain_rotation_history():
     casipt_file : str
       Path of output file containing nucleation info.
       Generally, .MDRX.txt is the name.
+    CA_input_file : str
+      Path of the CA input file.
     ang_file : str
       Path of file that contains the orientations of each point fronm CASIPT simulation.
       Generally, ..ang.txt is the name.
     """
     from damask import Rotation 
+    
+    # changing the MDRXed points orientation
     init_ori = np.loadtxt(initial_ori_file)
-    indices_RX = self.get_nucleation_info(icasipt_file) 
+    CA_input = np.loadtxt(CA_input_file,skiprows = 1)
+    indices_RX = self.get_nucleation_info(casipt_file) 
     init_ori[indices_RX,3:7] = Rotation.from_Euler_angles(self.read_CASIPT_orientation(ang_file)[indices_RX,:]).as_quaternion()
-    np.savetxt(initial_ori_file)
+    
+    # changing the GGed points orientation
+    indices_GG = np.unique(np.where(np.isclose(CA_input[:,7:10],self.read_CASIPT_orientation(ang_file)) == False)[0])
+    for i in indices_GG:
+      root_index = np.nonzero(np.isclose(CA_input[:,7:10],CA_output[indices_GG[i]])) # look for the parent of changed orientation
+      init_ori[i,3:7] = init_ori[root_index,3:7]
+    np.savetxt(initial_ori_file,init_ori)
     
   def modify_rotation(self,casipt_file):
     """  
