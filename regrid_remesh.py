@@ -52,7 +52,7 @@ class Remesh_for_CA():
     self.inc  = inc
     self.folder = folder
 
-  def main_all(self,geom,load,inc,folder):
+  def main_all(self,geom,load,inc,folder,needs_hist=False,casipt_input='',path_CA_stored=''):
     """
     Regrids the data and generates a HDF5 and text file for CA.
     Generates a new restart file using regridding framework.
@@ -68,6 +68,12 @@ class Remesh_for_CA():
       Increment for which regridding is being done
     folder : str
       Path to the folder
+    needs_hist : bool, optional
+      Should grain rotation calculation use the historical values or not. 
+    casipt_input : str,optional
+      path of the file used in the last step for CA (starts with remesh_).
+    path_CA_stored : str,optional
+      Path where the CA results are stored. 
     """ 
 
     isElastic = False
@@ -106,6 +112,8 @@ class Remesh_for_CA():
     orientations = d.read_dataset(d.get_dataset_location('O'))
     ### grain rotation
     grain_rotation = d.read_dataset(d.get_dataset_location('reorientation'))
+    if needs_hist:
+       grain_rotation = grain_rotation_history(casipt_input,path_CA_stored) 
     print('location',d.get_dataset_location('reorientation'))
     print('grain rot value',grain_rotation)
     print('grain rotation',grain_rotation.shape)
@@ -235,6 +243,58 @@ class Remesh_for_CA():
     #hdf.create_dataset('/inc{}/geometry/u_p'.format(inc),data=np.zeros(new_len,3))
     
     return self.new_size,self.new_grid
+
+  def grain_rotation_history(self,casipt_input,path_CA_stored):
+    """
+    Adds the grain rotation by taking its history into account.
+
+    check for indices where the orientations are different from input orientations for CASIPT.
+    Different orientation would mean that some kind of GG has occured and led to change in orientations.
+    This includes the GG from MDRX and GG of the austenite interfaces.  
+
+    Look for indices where MDRX has occured. These indices are then removed from the indices where some GG has occured. 
+
+    Indices affected by GG of austenite interfaces, the grain rotation from the parent will be inherited in this transformed cell.
+
+    Indices of MDRX will have earlier grain rotation reset to zero.
+
+    Parameters
+    ----------
+    casipt_input : str
+      path of the file used in the last step for CA (starts with remesh_).
+    path_CA_stored : str
+      Path where the CA results are stored. 
+
+    """
+    CA_input_last_step = np.loadtxt(casipt_input,skiprows=1)
+    CA_output_ori_last_step = np.loadtxt(path_CA_stored + '/..ang.txt')
+  
+    # check for indices where the orientations are different
+    # different orientation would mean that some kind of GG has occured and led to change in orientations
+    # this includes the GG from MDRX and GG of the austenite interfaces  
+    indices_GG = np.unique(np.where(np.isclose(CA_input[:,7:10],CA_output_ori,atol=1E-06) == False)[0])
+    
+    # indices where MDRX has occured
+    indices_MDRX = np.loadtxt(path_CA_stored + '/.MDRX.txt',dtype = np.int,usecols=(1))
+  
+    # removed MDRXed incides from the indices_GG
+    indices_GG = indices_GG[~np.in1d(indices_GG,indices_MDRX)]
+
+    parent_indices = []
+    for i in indices_GG:
+        parent_indices.append(np.where(np.isclose(CA_input[:,7:10],CA_output_ori[i,:],atol=1E-06).all(axis=1) == True)[0][0])
+
+    parent_indices = np.array(parent_indices)
+
+    grain_rotation_array_last = CA_input_last_step[:,4]
+
+    # indices affected by GG of austenite interfaces, the grain rotation from the parent will be inherited in this transformed cell
+    grain_rotation_array_last[indices_GG] = CA_input_last_step[parent_indices,4] 
+     
+    # indices of MDRX will have earlier grain rotation reset to zero
+    grain_rotation_array_last[indices_MDRX] = 0.0
+   
+    return grain_rotation_array_last
 
   def remesh_coords(self,filename,unit,folder):
     """
