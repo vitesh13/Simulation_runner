@@ -672,7 +672,7 @@ class Multi_stand_runner():
     d.add_calculation('r_s',"40/np.sqrt(#tot_density#)")
 
 # modify the CA xml file
-  def modify_CA_setting(self,filename,T,grid,delta_t,dx,start_file,basefn):
+  def modify_CA_setting(self,filename,T,grid,delta_t,dx,inherit_growth,start_file,basefn):
     """
     Modifies the XML file to run the CA code.
 
@@ -688,6 +688,8 @@ class Multi_stand_runner():
       Run time of the simulation
     dx : float
       Spacing of the CA grid
+    inherit_growth : int
+      Tag to inherit growth or not. 0 is no, 1 is yes.
     start_file : str
       Path of the input text file for CA
     basefn : str
@@ -712,6 +714,7 @@ class Multi_stand_runner():
     root.find('startfile_fn').text = start_file
     root.find('basefn').text = basefn
     root.find('mvInitialDislocationDensity').text = str(rho_mob_0 + rho_dip_0)
+    root.find('mvUseGrowthLengths').text = str(inherit_growth)
     tree.write(filename)
     
   def modify_geom_attributes(self):
