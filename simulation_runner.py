@@ -643,7 +643,7 @@ class Multi_stand_runner():
     d.add_calculation('r_s',"40/np.sqrt(#tot_density#)")
 
 # initial processing
-  def Initial_processing_DRX(self,job_file,simulation_folder,casipt_folder,inc):
+  def Initial_processing_DRX(self,job_file,simulation_folder,casipt_folder):
     """
     Initial post processing required for DRX simulations.
     Needs the remeshed original orientation data to calculate reorientation.
@@ -656,8 +656,6 @@ class Multi_stand_runner():
       Name of the simulation folder where the job file exists.
     casipt_folder: str
       Path of the ..ang file that contains the orientations in form of euler angles.
-    inc : int
-      Increment for regridding original orientations
 
     """
     import damask 
