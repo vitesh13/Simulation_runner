@@ -713,6 +713,7 @@ class Multi_stand_runner():
     root.find('dx').text = '{:.8f}'.format(dx)
     root.find('startfile_fn').text = start_file
     root.find('basefn').text = basefn
+    root.find('growthfile_fn').text = basefn + '/.growth_lengths.txt'
     root.find('mvInitialDislocationDensity').text = str(rho_mob_0 + rho_dip_0)
     root.find('mvUseGrowthLengths').text = str(inherit_growth)
     tree.write(filename)

@@ -113,7 +113,7 @@ class Remesh_for_CA():
     ### grain rotation
     grain_rotation = d.read_dataset(d.get_dataset_location('reorientation'))
     if needs_hist:
-       grain_rotation = grain_rotation_history(casipt_input,path_CA_stored) 
+       grain_rotation = self.grain_rotation_history(casipt_input,path_CA_stored) 
     print('location',d.get_dataset_location('reorientation'))
     print('grain rot value',grain_rotation)
     print('grain rotation',grain_rotation.shape)
@@ -267,12 +267,12 @@ class Remesh_for_CA():
 
     """
     CA_input_last_step = np.loadtxt(casipt_input,skiprows=1)
-    CA_output_ori_last_step = np.loadtxt(path_CA_stored + '/..ang.txt')
+    CA_output_ori_last_step = np.loadtxt(path_CA_stored + '/..ang')
   
     # check for indices where the orientations are different
     # different orientation would mean that some kind of GG has occured and led to change in orientations
     # this includes the GG from MDRX and GG of the austenite interfaces  
-    indices_GG = np.unique(np.where(np.isclose(CA_input[:,7:10],CA_output_ori,atol=1E-06) == False)[0])
+    indices_GG = np.unique(np.where(np.isclose(CA_input_last_step[:,7:10],CA_output_ori_last_step,atol=1E-06) == False)[0])
     
     # indices where MDRX has occured
     indices_MDRX = np.loadtxt(path_CA_stored + '/.MDRX.txt',dtype = np.int,usecols=(1))
@@ -282,14 +282,17 @@ class Remesh_for_CA():
 
     parent_indices = []
     for i in indices_GG:
-        parent_indices.append(np.where(np.isclose(CA_input[:,7:10],CA_output_ori[i,:],atol=1E-06).all(axis=1) == True)[0][0])
+        parent_indices.append(np.where(np.isclose(CA_input_last_step[:,7:10],CA_output_ori_last_step[i,:],atol=1E-06).all(axis=1) == True)[0][0])
 
     parent_indices = np.array(parent_indices)
 
     grain_rotation_array_last = CA_input_last_step[:,4]
 
     # indices affected by GG of austenite interfaces, the grain rotation from the parent will be inherited in this transformed cell
-    grain_rotation_array_last[indices_GG] = CA_input_last_step[parent_indices,4] 
+    try:
+        grain_rotation_array_last[indices_GG] = CA_input_last_step[parent_indices,4] 
+    except IndexError:
+        print("empty indices_GG")
      
     # indices of MDRX will have earlier grain rotation reset to zero
     grain_rotation_array_last[indices_MDRX] = 0.0
@@ -498,6 +501,57 @@ class Remesh_for_CA():
     #df_init.to_csv('postProc/Initial_orientation_regridded_inc{}'.format(inc),index=False,header=False)
     np.savetxt('postProc/Initial_orientation_regridded_{}.txt'.format(inc[-1]),df_init.values)
 
+  def regrid_growth_lengths(self,geom,load,inc,folder,path_CA_stored):
+    """
+    regrid the growth lengths array.
+
+    Parameters
+    ----------
+    geom : str
+      Name of the geom file.
+    load : str
+      Name of the load file.
+    inc : list
+      Increment for which regridding is being done.
+    folder : str
+      Path to the folder.
+    path_CA_stored : str
+      Path to the CASIPT output.
+    """ 
+
+    isElastic = False
+    scale = 1.0
+    grid = False 
+    os.chdir(folder)
+
+    print(inc[-1])
+    rg = geom_regridder(geom,load,increment=inc[-1].split('inc')[1])
+    rg.regrid_geom()
+  
+    self.new_size = rg.sizeRVE_regrid
+    self.new_grid = rg.gridSeeds_regrid
+   
+    # Building the new coordinates
+    elem0 = int(rg.gridSeeds_0.prod())
+    elem_rg = int(rg.gridSeeds_regrid.prod())
+    
+    New_RVE_size = rg.sizeRVE_regrid
+    new_grid_cell = rg.gridSeeds_regrid
+    origin0 = rg.originRVE_0
+    Cell_coords = rg.gridCoords_cell_regrid   #or it should be after the periodic shift??
+    print(Cell_coords.shape)
+
+    #--------------------------------
+    # make df for initial orientation
+    #--------------------------------
+    df_init = pd.DataFrame()
+
+    growth_length_0 = np.loadtxt(path_CA_stored + '/.growth_lengths.txt') 
+    growth_length_0_rg = growth_length_0[rg.get_nearestNeighbors()]
+    df_init['growth'] = growth_length_0_rg 
+    
+    np.savetxt(path_CA_stored + '/regridded_growth_lengths.txt',df_init.values)
+
   def remesh_Initial_ori0(self,filename,unit,folder): 
     """
     Remeshes the initial orientation to equidistant grid.
@@ -549,4 +603,55 @@ class Remesh_for_CA():
     np.savetxt('postProc/remesh_Initial_orientation_inc{}.txt'.format(\
                os.path.basename(os.path.splitext(filename)[0]).split('inc')[1]),\
                new_data_for_ori)#,fmt = ' '.join(['%.10e']*3  + ['%.10f']*4))
+
+  def remesh_growth_lengths(self,filename,unit,folder): 
+    """
+    Remeshes the growth lengths to equidistant grid.
+    
+    Parameters
+    ----------
+    filename : str 
+      file path
+    unit : float
+      Our units in comparison to DAMASK
+    folder : str
+      simulation folder
+    path_CA_stored : str
+      Path to the CASIPT output
+    """ 
+    os.chdir('{}'.format(folder))
+    dx = np.min(self.new_size/self.new_grid)#*1E-06
+    print(dx)
+    unit_scale = unit
+    
+    is2d = 0 # 1 for 2D data
+    
+    data = np.loadtxt(filename)
+    min_x = unit_scale*np.min(data[:,0])
+    min_y = unit_scale*np.min(data[:,1])
+    min_z = unit_scale*np.min(data[:,2])
+
+    #shift coords to start from 0
+    data[:,0] = unit_scale*data[:,0] - min_x
+    data[:,1] = unit_scale*data[:,1] - min_y
+    data[:,2] = unit_scale*data[:,2] - min_z
+    
+    nx = int(round(np.max(data[:,0])/dx))
+    ny = int(round(np.max(data[:,1])/dx))
+    nz = int(round(np.max(data[:,2])/dx))
+    
+    x_new = np.mgrid[0:nx+1]*dx 
+    y_new = np.mgrid[0:ny+1]*dx 
+    z_new = np.mgrid[0:nz+1]*dx 
+    
+    new_coords = np.stack(np.meshgrid(x_new,y_new,z_new,indexing='ij'),axis=-1).reshape(((nx+1)*(ny+1)*(nz+1),3),order='F')
+    
+    # extra for remeshing original orientation
+    data_for_growth = np.loadtxt(path_CA_stored + '/growth_lengths.txt')
+    print(data_for_growth.shape)
+    new_data_for_growth = np.zeros((len(new_coords),4))
+    new_data_for_growth[:,0:3] = new_coords
+    new_data_for_growth[:,3] = griddata(data[:,0:3],data_for_growth,new_data_for_growth[:,0:3],method='nearest')
+
+    np.savetxt(path_CA_stored + '/growth_lengths.txt',new_data_for_ori)#,fmt = ' '.join(['%.10e']*3  + ['%.10f']*4))
 
