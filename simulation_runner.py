@@ -240,7 +240,7 @@ class Multi_stand_runner():
     """
     converged_inc = int(re.search('[0-9]+',inc_string).group())
     if (converged_inc)%freq == 0:
-      copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
+      move(self.tmp + '/' + self.job_file,'{}/{}'.format(self.simulation_folder,self.job_file))
     if (converged_inc - 1)%freq == 0:
       copy(self.job_file,'{}'.format(self.tmp))
     if converged_inc == int(inc.split('inc')[1]) + 2:
