@@ -548,8 +548,11 @@ class Multi_stand_runner():
             # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
             P.send_signal(signal.SIGTERM)
             P.send_signal(signal.SIGCONT)
-        else:
-          P.send_signal(signal.SIGCONT)
+            break
+          else:
+            P.send_signal(signal.SIGCONT)
+      print('returncode after signals',P.returncode)
+      P.wait()
       return P.poll()
  
 # copy output files to avoid issues
