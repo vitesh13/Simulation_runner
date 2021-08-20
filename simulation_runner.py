@@ -137,6 +137,7 @@ class Multi_stand_runner():
           self.file_transfer(record,freq)
           if growth_length >= self.get_min_resolution():
             print(record)
+            self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)  #keeping this signal off for now
             P.send_signal(signal.SIGUSR2)
             # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
@@ -211,6 +212,7 @@ class Multi_stand_runner():
           self.file_transfer(record,freq)
           if growth_length >= self.get_min_resolution():
             print(record)
+            self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)  #keeping this signal off for now
             P.send_signal(signal.SIGUSR2)
             # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
@@ -225,7 +227,7 @@ class Multi_stand_runner():
             print("continued")
       return P.poll()
 
-  def file_transfer(self,inc_string,freq,inc='inc1'):
+  def file_transfer(self,inc_string,freq,inc='inc1',trigger=False):
     """
     Moves around the result file to avoid too many increments. 
 
@@ -237,14 +239,18 @@ class Multi_stand_runner():
       Required output frequency
     inc : str
       increment at which DRX restart happened.
+    trigger : bool
+      Indication to remove extra increments before trigger. Default false.
     """
     converged_inc = int(re.search('[0-9]+',inc_string).group())
     if (converged_inc)%freq == 0:
-      move(self.tmp + '/' + self.job_file,'{}/{}'.format(self.simulation_folder,self.job_file))
+      copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
     if (converged_inc - 1)%freq == 0:
       copy(self.job_file,'{}'.format(self.tmp))
     if converged_inc == int(inc.split('inc')[1]) + 2:
       copy(self.job_file,'{}'.format(self.tmp))
+    if trigger:
+      copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
 
 
   def calc_delta_E(self,inc_string,G,b):
@@ -482,6 +488,7 @@ class Multi_stand_runner():
           self.file_transfer(record,freq,inc)
           if growth_length >= self.get_min_resolution():
           #  print(record[-1])
+            self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)
             P.send_signal(signal.SIGUSR2)
             # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
@@ -543,6 +550,7 @@ class Multi_stand_runner():
           self.file_transfer(record,freq,inc)
           if growth_length >= self.get_min_resolution():
           #  print(record[-1])
+            self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)
             P.send_signal(signal.SIGUSR2)
             # https://www.open-mpi.org/doc/v3.0/man1/mpiexec.1.php
