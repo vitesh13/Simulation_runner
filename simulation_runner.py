@@ -32,7 +32,7 @@ class Multi_stand_runner():
     """ Sets the files names and folder names."""
     self.sample_folder = '/nethome/v.shah/DAMASK/examples/grid/' #need to change this folder when doing other stands
     self.simulation_folder = '/nethome/v.shah/DAMASK/examples/grid/simulation'
-    self.geom_file = '20grains16x16x16.vtr'
+    self.geom_file = '20grains16x16x16.vti'
     self.load_file = 'tensionX.yaml'
     self.config_file = 'material.yaml'
     self.extra_config = 'ho_cr_ph.config'
