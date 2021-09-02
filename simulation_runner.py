@@ -102,6 +102,7 @@ class Multi_stand_runner():
     copy(config_file,'{}'.format(simulation_folder))  
     os.chdir('{}'.format(simulation_folder))
     cmd = 'mpiexec -n {} DAMASK_grid -l {} -g {}'.format(proc,load_file,geom_file)
+    mu  = self.get_mu()
     with open('check.txt','w') as f:
       P = subprocess.Popen(shlex.split(cmd),stdout = subprocess.PIPE, stderr = subprocess.PIPE)
       r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0',re.U) 
@@ -130,7 +131,7 @@ class Multi_stand_runner():
               children.suspend()
           #P.send_signal(signal.SIGSTOP)
           print(record)
-          velocity = self.calc_velocity(self.calc_delta_E(record,32E9,2.5E-10),self.casipt_input)  #needs G, b and mobility  
+          velocity = self.calc_velocity(self.calc_delta_E(record,mu,2.5E-10),self.casipt_input)  #needs G, b and mobility  
           growth_length = growth_length + velocity*self.calc_timeStep(record) 
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
@@ -189,6 +190,7 @@ class Multi_stand_runner():
     copy(config_file,'{}'.format(simulation_folder))  
     os.chdir('{}'.format(simulation_folder))
     cmd = 'DAMASK_grid -l {} -g {}'.format(load_file,geom_file)
+    mu  = self.get_mu()
     with open('check.txt','w') as f:
       P = subprocess.Popen(shlex.split(cmd),stdout = subprocess.PIPE, stderr = subprocess.PIPE)
       r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0',re.U) 
@@ -205,7 +207,7 @@ class Multi_stand_runner():
         if re.search(r, record):
           P.send_signal(signal.SIGSTOP)
           print(record)
-          velocity = self.calc_velocity(self.calc_delta_E(record,32E9,2.5E-10),self.casipt_input)  #needs G, b and mobility  
+          velocity = self.calc_velocity(self.calc_delta_E(record,mu,2.5E-10),self.casipt_input)  #needs G, b and mobility  
           growth_length = growth_length + velocity*self.calc_timeStep(record) 
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
@@ -252,6 +254,16 @@ class Multi_stand_runner():
     if trigger:
       copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
 
+
+  def get_mu(self):
+    """
+    Get shear modulus as a function of temperature.
+
+    """
+    from damask import Config
+    loading = Config.load(self.load_file)
+    T = loading['initial_conditions']['thermal']['T']  
+    return 92.648E9*(1 - 7.9921E-07*(T**2.0) + 3.3171E-10*(T**3.0))
 
   def calc_delta_E(self,inc_string,G,b):
     """
