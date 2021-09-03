@@ -113,7 +113,7 @@ class Remesh_for_CA():
     ### grain rotation
     grain_rotation = d.read_dataset(d.get_dataset_location('reorientation'))
     if needs_hist:
-       grain_rotation = self.grain_rotation_history(casipt_input,path_CA_stored) 
+       grain_rotation = grain_rotation + self.grain_rotation_history(casipt_input,path_CA_stored)
     print('location',d.get_dataset_location('reorientation'))
     print('grain rot value',grain_rotation)
     print('grain rotation',grain_rotation.shape)
@@ -297,7 +297,7 @@ class Remesh_for_CA():
     # indices of MDRX will have earlier grain rotation reset to zero
     grain_rotation_array_last[indices_MDRX] = 0.0
    
-    return grain_rotation_array_last
+    return grain_rotation_array_last.reshape((len(grain_rotation_array_last),1))
 
   def remesh_coords(self,filename,unit,folder):
     """
