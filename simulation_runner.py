@@ -299,7 +299,7 @@ class Multi_stand_runner():
     delta_E  = G*(b**2.0)*self.diff_rho*austenite_mv
     return delta_E
 
-  def nuclei_diff(self,avg_rho,mu,K_s = 40.0,gamma = 0.46,burger = 2.56E-10):
+  def nuclei_diff(self,avg_rho,mu,K_s = 40.0,gamma = 0.46,burgers = 2.56E-10):
     """
     Calculate a rough nucleation criterion threshold. 
 
