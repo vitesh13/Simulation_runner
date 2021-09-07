@@ -76,7 +76,7 @@ class Multi_stand_runner():
   def run_and_monitor_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc,freq):
     """
     Runs and monitors a fresh simulation.
-    Will return negative value if terminated bz signals.
+    Will return negative value if terminated by signals.
 
     Parameters
     ----------
@@ -136,7 +136,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq)
-          if growth_length >= self.get_min_resolution():
+          if growth_length >= self.get_min_resolution() or self.diff_rho >= self.nuclei_diff(self.avg_rho,mu):
             print(record)
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)  #keeping this signal off for now
@@ -212,7 +212,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq)
-          if growth_length >= self.get_min_resolution():
+          if growth_length >= self.get_min_resolution() or self.diff_rho >= self.nuclei_diff(self.avg_rho,mu):
             print(record)
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)  #keeping this signal off for now
@@ -288,17 +288,33 @@ class Multi_stand_runner():
     rho_mob = d.read_dataset([path])
     rho_dip = d.read_dataset([path.split('rho_mob')[0] + 'rho_dip'])
     tot_rho_array = np.sum((np.sum(rho_mob,1),np.sum(rho_dip,1)),0)
-    max_rho = np.max(tot_rho_array)
-    #avg_rho = np.average(tot_rho_array)
-    min_rho = np.min(tot_rho_array)
+    self.max_rho = np.max(tot_rho_array)
+    self.avg_rho = np.average(tot_rho_array)
+    self.min_rho = np.min(tot_rho_array)
     #diff_rho = max_rho - avg_rho
-    diff_rho = max_rho - min_rho
+    self.diff_rho = self.max_rho - self.min_rho
     austenite_mv = 0.0000073713716  # austenite molar volume
      
-    print(diff_rho)
-    delta_E  = G*(b**2.0)*diff_rho*austenite_mv
+    print(self.diff_rho)
+    delta_E  = G*(b**2.0)*self.diff_rho*austenite_mv
     return delta_E
 
+  def nuclei_diff(self,avg_rho,mu,K_s = 40.0,gamma = 0.46,burger = 2.56E-10):
+    """
+    Calculate a rough nucleation criterion threshold. 
+
+    Parameters
+    ----------
+    avg_rho : float
+      Average dislocation density
+    mu : float 
+      Shear modulus
+    gamma : float
+      GB energy
+    burger : float
+      Burger's vector
+    """
+    return 4.0*gamma*np.sqrt(avg_rho)/((burgers**2)*mu*K_s)
 
   def calc_velocity(self,delta_E,casipt_input):
     """
@@ -498,7 +514,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq,inc)
-          if growth_length >= self.get_min_resolution():
+          if growth_length >= self.get_min_resolution() or self.diff_rho >= self.nuclei_diff(self.avg_rho,mu):
           #  print(record[-1])
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)
@@ -560,7 +576,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq,inc)
-          if growth_length >= self.get_min_resolution():
+          if growth_length >= self.get_min_resolution() or self.diff_rho >= self.nuclei_diff(self.avg_rho,mu):
           #  print(record[-1])
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)
@@ -663,7 +679,7 @@ class Multi_stand_runner():
     d.add_grainrotation(orientation0,degrees=True,with_axis=False,without_rigid_rotation=True)
     #d.add_Eulers('orientation')
     d.add_calculation('tot_density','np.sum((np.sum(#rho_mob#,1),np.sum(#rho_dip#,1)),0)')
-    d.add_calculation('r_s',"40/np.sqrt(#tot_density#)")
+    d.add_calculation('r_s',"10/np.sqrt(#tot_density#)")
 
 # initial processing
   def Initial_processing_DRX(self,job_file,simulation_folder,casipt_folder):
@@ -692,7 +708,7 @@ class Multi_stand_runner():
     d.add_grainrotation(orientation0,degrees=True,with_axis=False,without_rigid_rotation=True)
     #d.add_Eulers('orientation')
     d.add_calculation('tot_density','np.sum((np.sum(#rho_mob#,1),np.sum(#rho_dip#,1)),0)')
-    d.add_calculation('r_s',"40/np.sqrt(#tot_density#)")
+    d.add_calculation('r_s',"10/np.sqrt(#tot_density#)")
 
 # modify the CA xml file
   def modify_CA_setting(self,filename,T,grid,delta_t,dx,inherit_growth,start_file,basefn):
