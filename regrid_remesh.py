@@ -550,7 +550,7 @@ class Remesh_for_CA():
     growth_length_0_rg = growth_length_0[rg.get_nearestNeighbors()]
     df_init['growth'] = growth_length_0_rg 
     
-    np.savetxt(path_CA_stored + '/regridded_growth_lengths.txt',df_init.values)
+    np.savetxt(path_CA_stored + '/regridded_growth_lengths.txt',df_init.values,fmt='%.10f')
 
   def remesh_Initial_ori0(self,filename,unit,folder): 
     """
