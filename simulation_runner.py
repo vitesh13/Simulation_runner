@@ -136,7 +136,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq)
-          if growth_length >= self.get_min_resolution() or self.diff_rho >= self.nuclei_diff(self.avg_rho,mu):
+          if growth_length >= self.get_min_resolution():
             print(record)
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)  #keeping this signal off for now
@@ -212,7 +212,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq)
-          if growth_length >= self.get_min_resolution() or self.diff_rho >= self.nuclei_diff(self.avg_rho,mu):
+          if growth_length >= self.get_min_resolution():
             print(record)
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)  #keeping this signal off for now
@@ -298,23 +298,6 @@ class Multi_stand_runner():
     print(self.diff_rho)
     delta_E  = G*(b**2.0)*self.diff_rho*austenite_mv
     return delta_E
-
-  def nuclei_diff(self,avg_rho,mu,K_s = 20.0,gamma = 0.46,burgers = 2.56E-10):
-    """
-    Calculate a rough nucleation criterion threshold. 
-
-    Parameters
-    ----------
-    avg_rho : float
-      Average dislocation density
-    mu : float 
-      Shear modulus
-    gamma : float
-      GB energy
-    burger : float
-      Burger's vector
-    """
-    return 4.0*gamma*np.sqrt(avg_rho)/((burgers**2)*mu*K_s)
 
   def calc_velocity(self,delta_E,casipt_input):
     """
@@ -515,7 +498,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq,inc)
-          if growth_length >= self.get_min_resolution() or self.diff_rho >= self.nuclei_diff(self.avg_rho,mu):
+          if growth_length >= self.get_min_resolution():
           #  print(record[-1])
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)
@@ -581,7 +564,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq,inc)
-          if growth_length >= self.get_min_resolution() or self.diff_rho >= self.nuclei_diff(self.avg_rho,mu):
+          if growth_length >= self.get_min_resolution():
           #  print(record[-1])
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)
