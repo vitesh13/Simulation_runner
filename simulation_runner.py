@@ -299,7 +299,7 @@ class Multi_stand_runner():
     delta_E  = G*(b**2.0)*self.diff_rho*austenite_mv
     return delta_E
 
-  def nuclei_diff(self,avg_rho,mu,K_s = 40.0,gamma = 0.46,burgers = 2.56E-10):
+  def nuclei_diff(self,avg_rho,mu,K_s = 20.0,gamma = 0.46,burgers = 2.56E-10):
     """
     Calculate a rough nucleation criterion threshold. 
 
@@ -494,6 +494,7 @@ class Multi_stand_runner():
     copy(self.job_file,'{}'.format(self.tmp))                          # recording the increment at which the simulation triggered
     self.time_for_CA = 0.0
     cmd = 'mpiexec -n {} DAMASK_grid -l {} -g {} -r {}'.format(proc,self.load_file,self.geom_file,inc.split('inc')[1])
+    mu  = self.get_mu()
     with open('check.txt','w') as f:
       P = subprocess.Popen(shlex.split(cmd),stdout = subprocess.PIPE, stderr = subprocess.PIPE)
       r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0',re.U) 
@@ -508,7 +509,7 @@ class Multi_stand_runner():
               children.suspend()
           #P.send_signal(signal.SIGSTOP)
           print(record)
-          velocity = self.calc_velocity(self.calc_delta_E(record,32E9,2.5E-10),self.casipt_input)  #needs G, b and mobility  
+          velocity = self.calc_velocity(self.calc_delta_E(record,mu,2.5E-10),self.casipt_input)  #needs G, b and mobility  
           print('velocity after trigger',velocity)
           growth_length = growth_length + velocity*self.calc_timeStep(record) 
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
@@ -531,13 +532,16 @@ class Multi_stand_runner():
               if children.name() == 'DAMASK_grid':
                 children.resume()
             #P.send_signal(signal.SIGCONT)
-        else:
-          for children in psutil.Process(P.pid).children(recursive=True):
-            #print(children)
-            if children.name() == 'DAMASK_grid':
-              children.resume()
-          #P.send_signal(signal.SIGCONT)
-      return P.poll()
+            break
+          else:
+            for children in psutil.Process(P.pid).children(recursive=True):
+              #print(children)
+              if children.name() == 'DAMASK_grid':
+                children.resume()
+            #P.send_signal(signal.SIGCONT)
+      print('returncode after signals',P.returncode)
+      P.wait()
+    return P.poll()
     
   def run_restart_DRX_no_MPI(self,inc,proc,freq):
     """
@@ -560,6 +564,7 @@ class Multi_stand_runner():
     copy(self.job_file,'{}'.format(self.tmp))                          # recording the increment at which the simulation triggered
     self.time_for_CA = 0.0
     cmd = 'DAMASK_grid -l {} -g {} -r {}'.format(self.load_file,self.geom_file,inc.split('inc')[1])
+    mu  = self.get_mu()
     with open('check.txt','w') as f:
       P = subprocess.Popen(shlex.split(cmd),stdout = subprocess.PIPE, stderr = subprocess.PIPE)
       r = re.compile(' Increment [0-9]+/[0-9]+-1/1 @ Iteration 1≤0',re.U) 
@@ -570,7 +575,7 @@ class Multi_stand_runner():
         if re.search(r, record):
           P.send_signal(signal.SIGSTOP)
           print(record)
-          velocity = self.calc_velocity(self.calc_delta_E(record,32E9,2.5E-10),self.casipt_input)  #needs G, b and mobility  
+          velocity = self.calc_velocity(self.calc_delta_E(record,mu,2.5E-10),self.casipt_input)  #needs G, b and mobility  
           print('velocity after trigger',velocity)
           growth_length = growth_length + velocity*self.calc_timeStep(record) 
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
@@ -589,7 +594,7 @@ class Multi_stand_runner():
             P.send_signal(signal.SIGCONT)
       print('returncode after signals',P.returncode)
       P.wait()
-      return P.poll()
+    return P.poll()
  
 # copy output files to avoid issues
   def copy_output(self,stand,simulation_folder,sample_folder,job_file,restart_file,geom_file,load_file,config_file,extra_config,sta_file,make_dir = True):
@@ -679,7 +684,7 @@ class Multi_stand_runner():
     d.add_grainrotation(orientation0,degrees=True,with_axis=False,without_rigid_rotation=True)
     #d.add_Eulers('orientation')
     d.add_calculation('tot_density','np.sum((np.sum(#rho_mob#,1),np.sum(#rho_dip#,1)),0)')
-    d.add_calculation('r_s',"10/np.sqrt(#tot_density#)")
+    d.add_calculation('r_s',"40/np.sqrt(#tot_density#)")
 
 # initial processing
   def Initial_processing_DRX(self,job_file,simulation_folder,casipt_folder):
@@ -708,7 +713,7 @@ class Multi_stand_runner():
     d.add_grainrotation(orientation0,degrees=True,with_axis=False,without_rigid_rotation=True)
     #d.add_Eulers('orientation')
     d.add_calculation('tot_density','np.sum((np.sum(#rho_mob#,1),np.sum(#rho_dip#,1)),0)')
-    d.add_calculation('r_s',"10/np.sqrt(#tot_density#)")
+    d.add_calculation('r_s',"40/np.sqrt(#tot_density#)")
 
 # modify the CA xml file
   def modify_CA_setting(self,filename,T,grid,delta_t,dx,inherit_growth,start_file,basefn):
