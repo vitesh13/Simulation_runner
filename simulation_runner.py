@@ -245,15 +245,26 @@ class Multi_stand_runner():
       Indication to remove extra increments before trigger. Default false.
     """
     converged_inc = int(re.search('[0-9]+',inc_string).group())
+    file_transfer_op = False
+
     if (converged_inc)%freq == 0:
       copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
+      file_transfer_op = True
     if (converged_inc - 1)%freq == 0:
       copy(self.job_file,'{}'.format(self.tmp))
+      file_transfer_op = True
     if converged_inc == int(inc.split('inc')[1]) + 2:
       copy(self.job_file,'{}'.format(self.tmp))
+    if converged_inc <= int(inc.split('inc')[1]) + 2:
+      file_transfer_op = True
     if trigger:
       copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
+      file_transfer_op = True
 
+    if file_transfer_op == False:
+      with h5py.File(self.simulation_folder + '/' + self.job_file,'r+') as f:
+        del f[f'inc{converged_inc - 1}']
+      
 
   def get_mu(self):
     """
