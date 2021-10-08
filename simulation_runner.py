@@ -678,7 +678,7 @@ class Multi_stand_runner():
     d.add_grainrotation(orientation0,degrees=True,with_axis=False,without_rigid_rotation=True)
     #d.add_Eulers('orientation')
     d.add_calculation('tot_density','np.sum((np.sum(#rho_mob#,1),np.sum(#rho_dip#,1)),0)')
-    d.add_calculation('r_s',"40/np.sqrt(#tot_density#)")
+    d.add_calculation('r_s',"30/np.sqrt(#tot_density#)")
 
 # initial processing
   def Initial_processing_DRX(self,job_file,simulation_folder,casipt_folder):
@@ -707,7 +707,7 @@ class Multi_stand_runner():
     d.add_grainrotation(orientation0,degrees=True,with_axis=False,without_rigid_rotation=True)
     #d.add_Eulers('orientation')
     d.add_calculation('tot_density','np.sum((np.sum(#rho_mob#,1),np.sum(#rho_dip#,1)),0)')
-    d.add_calculation('r_s',"40/np.sqrt(#tot_density#)")
+    d.add_calculation('r_s',"30/np.sqrt(#tot_density#)")
 
 # modify the CA xml file
   def modify_CA_setting(self,filename,T,grid,delta_t,dx,inherit_growth,start_file,basefn):
