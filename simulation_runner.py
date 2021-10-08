@@ -262,8 +262,7 @@ class Multi_stand_runner():
       file_transfer_op = True
 
     if file_transfer_op == False:
-      with h5py.File(self.simulation_folder + '/' + self.job_file,'r+') as f:
-        del f[f'inc{converged_inc - 1}']
+      copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
       
 
   def get_mu(self):
