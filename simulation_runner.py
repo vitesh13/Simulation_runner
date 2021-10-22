@@ -248,7 +248,7 @@ class Multi_stand_runner():
     file_transfer_op = False
 
     if (converged_inc)%freq == 0:
-      copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
+      move(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
       file_transfer_op = True
     if (converged_inc - 1)%freq == 0:
       copy(self.job_file,'{}'.format(self.tmp))
@@ -258,11 +258,11 @@ class Multi_stand_runner():
     if converged_inc <= int(inc.split('inc')[1]) + 2:
       file_transfer_op = True
     if trigger:
-      copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
+      move(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
       file_transfer_op = True
 
     if file_transfer_op == False:
-      copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
+      move(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
       
 
   def get_mu(self):
