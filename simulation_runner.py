@@ -136,7 +136,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq)
-          if growth_length >= 10.0*self.get_min_resolution():
+          if growth_length >= 1.0*self.get_min_resolution():
             print(record)
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)  #keeping this signal off for now
@@ -212,7 +212,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq)
-          if growth_length >= 10.0*self.get_min_resolution():
+          if growth_length >= 1.0*self.get_min_resolution():
             print(record)
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)  #keeping this signal off for now
@@ -508,7 +508,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq,inc)
-          if growth_length >= 10.0*self.get_min_resolution():
+          if growth_length >= 1.0*self.get_min_resolution():
           #  print(record[-1])
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)
@@ -574,7 +574,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq,inc)
-          if growth_length >= 10.0*self.get_min_resolution():
+          if growth_length >= 1.0*self.get_min_resolution():
           #  print(record[-1])
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)
