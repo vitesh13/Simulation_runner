@@ -73,7 +73,7 @@ class Multi_stand_runner():
       p.poll()
     return p.poll()
 
-  def run_and_monitor_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc,freq):
+  def run_and_monitor_simulation(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc,freq,K):
     """
     Runs and monitors a fresh simulation.
     Will return negative value if terminated by signals.
@@ -94,6 +94,8 @@ class Multi_stand_runner():
       Number of processors to be used.
     freq: int
       Required output frequency
+    K : float 
+      Coupling factor. 
     """
     self.time_for_CA = 0.0
     os.chdir('{}'.format(sample_folder))
@@ -136,7 +138,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq)
-          if growth_length >= 1.0*self.get_min_resolution():
+          if growth_length >= K*self.get_min_resolution():
             print(record)
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)  #keeping this signal off for now
@@ -161,7 +163,7 @@ class Multi_stand_runner():
             print("continued")
       return P.poll()
 
-  def run_and_monitor_simulation_no_MPI(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc,freq):
+  def run_and_monitor_simulation_no_MPI(self,simulation_folder,sample_folder,geom_file,load_file,config_file,proc,freq,K):
     """
     Runs and monitors a fresh simulation.
     Will return negative value if terminated bz signals.
@@ -182,6 +184,8 @@ class Multi_stand_runner():
       Number of processors to be used.
     freq: int
       Required output frequency
+    K : float
+      Coupling factor.
     """
     self.time_for_CA = 0.0
     os.chdir('{}'.format(sample_folder))
@@ -212,7 +216,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq)
-          if growth_length >= 1.0*self.get_min_resolution():
+          if growth_length >= K*self.get_min_resolution():
             print(record)
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)  #keeping this signal off for now
@@ -248,7 +252,8 @@ class Multi_stand_runner():
     file_transfer_op = False
 
     if (converged_inc)%freq == 0:
-      move(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
+      full_path = os.path.join(self.simulation_folder,self.job_file)
+      move(self.tmp + '/' + self.job_file,full_path)
       file_transfer_op = True
     if (converged_inc - 1)%freq == 0:
       copy(self.job_file,'{}'.format(self.tmp))
@@ -258,11 +263,12 @@ class Multi_stand_runner():
     if converged_inc <= int(inc.split('inc')[1]) + 2:
       file_transfer_op = True
     if trigger:
-      move(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
+      full_path = os.path.join(self.simulation_folder,self.job_file)
+      move(self.tmp + '/' + self.job_file,full_path)
       file_transfer_op = True
 
     if file_transfer_op == False:
-      move(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
+      copy(self.tmp + '/' + self.job_file,'{}'.format(self.simulation_folder))
       
 
   def get_mu(self):
@@ -466,7 +472,7 @@ class Multi_stand_runner():
       p.poll()
     return p.poll()
 
-  def run_restart_DRX(self,inc,proc,freq):
+  def run_restart_DRX(self,inc,proc,freq,K):
     """
     Restart simulation after initial DRX trigger. 
 
@@ -478,6 +484,8 @@ class Multi_stand_runner():
       Number of processors.
     freq: int
       Required output frequency
+    K : float
+      Coupling factor.
     """
     os.chdir(self.simulation_folder)
     restart_geom = os.path.splitext(self.geom_file)[0] + '_regridded_{}.vtr'.format(inc)
@@ -508,7 +516,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq,inc)
-          if growth_length >= 1.0*self.get_min_resolution():
+          if growth_length >= K*self.get_min_resolution():
           #  print(record[-1])
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)
@@ -536,7 +544,7 @@ class Multi_stand_runner():
       P.wait()
     return P.poll()
     
-  def run_restart_DRX_no_MPI(self,inc,proc,freq):
+  def run_restart_DRX_no_MPI(self,inc,proc,freq,K):
     """
     Restart simulation after initial DRX trigger. 
 
@@ -548,6 +556,8 @@ class Multi_stand_runner():
       Number of processors.
     freq: int
       Required output frequency
+    K : float
+      Coupling factor. 
     """
     os.chdir(self.simulation_folder)
     restart_geom = os.path.splitext(self.geom_file)[0] + '_regridded_{}.vtr'.format(inc)
@@ -574,7 +584,7 @@ class Multi_stand_runner():
           self.time_for_CA = self.time_for_CA + self.calc_timeStep(record)
           print(growth_length)
           self.file_transfer(record,freq,inc)
-          if growth_length >= 1.0*self.get_min_resolution():
+          if growth_length >= K*self.get_min_resolution():
           #  print(record[-1])
             self.file_transfer(record,freq,trigger=True)
             #P.send_signal(signal.SIGUSR1)
