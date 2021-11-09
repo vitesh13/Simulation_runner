@@ -604,7 +604,7 @@ class Remesh_for_CA():
                os.path.basename(os.path.splitext(filename)[0]).split('inc')[1]),\
                new_data_for_ori)#,fmt = ' '.join(['%.10e']*3  + ['%.10f']*4))
 
-  def remesh_growth_lengths(self,filename,unit,folder): 
+  def remesh_growth_lengths(self,filename,unit,folder,path_CA_stored): 
     """
     Remeshes the growth lengths to equidistant grid.
     
@@ -626,7 +626,7 @@ class Remesh_for_CA():
     
     is2d = 0 # 1 for 2D data
     
-    data = np.loadtxt(filename)
+    data = np.loadtxt(filename,skiprows=1)
     min_x = unit_scale*np.min(data[:,0])
     min_y = unit_scale*np.min(data[:,1])
     min_z = unit_scale*np.min(data[:,2])
@@ -647,11 +647,11 @@ class Remesh_for_CA():
     new_coords = np.stack(np.meshgrid(x_new,y_new,z_new,indexing='ij'),axis=-1).reshape(((nx+1)*(ny+1)*(nz+1),3),order='F')
     
     # extra for remeshing original orientation
-    data_for_growth = np.loadtxt(path_CA_stored + '/growth_lengths.txt')
+    data_for_growth = np.loadtxt(path_CA_stored + '/regridded_growth_lengths.txt')
     print(data_for_growth.shape)
     new_data_for_growth = np.zeros((len(new_coords),4))
     new_data_for_growth[:,0:3] = new_coords
     new_data_for_growth[:,3] = griddata(data[:,0:3],data_for_growth,new_data_for_growth[:,0:3],method='nearest')
 
-    np.savetxt(path_CA_stored + '/growth_lengths.txt',new_data_for_ori)#,fmt = ' '.join(['%.10e']*3  + ['%.10f']*4))
+    np.savetxt(path_CA_stored + '/remesh_growth_lengths.txt',new_data_for_growth[:,3],fmt='%.10f')#,fmt = ' '.join(['%.10e']*3  + ['%.10f']*4))
 
