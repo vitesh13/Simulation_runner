@@ -253,7 +253,10 @@ class Multi_stand_runner():
 
     if (converged_inc)%freq == 0:
       full_path = os.path.join(self.simulation_folder,self.job_file)
-      move(self.tmp + '/' + self.job_file,full_path)
+      try:
+        move(self.tmp + '/' + self.job_file,full_path)
+      except FileNotFoundError:
+        print("Maybe already copied")
       file_transfer_op = True
     if (converged_inc - 1)%freq == 0:
       copy(self.job_file,'{}'.format(self.tmp))
@@ -264,7 +267,10 @@ class Multi_stand_runner():
       file_transfer_op = True
     if trigger:
       full_path = os.path.join(self.simulation_folder,self.job_file)
-      move(self.tmp + '/' + self.job_file,full_path)
+      try:
+        move(self.tmp + '/' + self.job_file,full_path)
+      except FileNotFoundError:
+        print("Maybe already copied")
       file_transfer_op = True
 
     if file_transfer_op == False:
