@@ -251,24 +251,23 @@ class Multi_stand_runner():
     converged_inc = int(re.search('[0-9]+',inc_string).group())
     file_transfer_op = False
 
-    if (converged_inc)%freq == 0:
+    if (converged_inc)%freq == 0 and converged_inc != int(inc.split('inc')[1]) + 2:
       full_path = os.path.join(self.simulation_folder,self.job_file)
       try:
-        move(self.tmp + '/' + self.job_file,full_path)
+        copy(self.tmp + '/' + os.path.splitext(self.job_file)[0] + '_1.hdf5',full_path)
       except FileNotFoundError:
         print("Maybe already copied")
       file_transfer_op = True
     if (converged_inc - 1)%freq == 0:
-      copy(self.job_file,'{}'.format(self.tmp))
+      copy(self.job_file,'{}/{}_{}.hdf5'.format(self.tmp,os.path.splitext(self.job_file)[0],converged_inc))
       file_transfer_op = True
-    if converged_inc == int(inc.split('inc')[1]) + 2:
-      copy(self.job_file,'{}'.format(self.tmp))
     if converged_inc <= int(inc.split('inc')[1]) + 2:
+      copy(self.job_file,'{}/{}_{}.hdf5'.format(self.tmp,os.path.splitext(self.job_file)[0],converged_inc))
       file_transfer_op = True
     if trigger:
       full_path = os.path.join(self.simulation_folder,self.job_file)
       try:
-        move(self.tmp + '/' + self.job_file,full_path)
+        copy(self.tmp + '/' + os.path.splitext(self.job_file)[0] + '_1.hdf5',full_path)
       except FileNotFoundError:
         print("Maybe already copied")
       file_transfer_op = True
