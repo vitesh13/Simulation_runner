@@ -244,6 +244,31 @@ class Remesh_for_CA():
     
     return self.new_size,self.new_grid
 
+  def output_without_regridding():
+    """
+    Write out a output file for CA, but without regridding. 
+    The co-ordinates are shifted to start from 0,0,0.
+
+    Parameters
+    ----------
+    geom : str
+      Name of the geom file
+    load : str
+      Name of the load file
+    inc : int
+      Increment for which regridding is being done
+    folder : str
+      Path to the folder
+    needs_hist : bool, optional
+      Should grain rotation calculation use the historical values or not. 
+    casipt_input : str,optional
+      path of the file used in the last step for CA (starts with remesh_).
+    path_CA_stored : str,optional
+      Path where the CA results are stored. 
+
+    """
+    print('Hello')
+
   def grain_rotation_history(self,casipt_input,path_CA_stored):
     """
     Adds the grain rotation by taking its history into account.
