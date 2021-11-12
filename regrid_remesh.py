@@ -23,6 +23,7 @@ from damask import geom_regridder
 from damask import restart_regridder
 from damask import Rotation
 from damask import Orientation
+from damask import Grid
 #from output_reader import output_reader
 
 # combining the codes from 0_main_all and remesh_coords
@@ -244,7 +245,7 @@ class Remesh_for_CA():
     
     return self.new_size,self.new_grid
 
-  def output_without_regridding():
+  def output_without_regridding(self,geom,load,inc,folder,needs_hist=False,casipt_input='',path_CA_stored = ''):
     """
     Write out a output file for CA, but without regridding. 
     The co-ordinates are shifted to start from 0,0,0.
@@ -267,7 +268,68 @@ class Remesh_for_CA():
       Path where the CA results are stored. 
 
     """
-    print('Hello')
+    os.chdir(folder)
+    geom = Grid.load(self.geom) 
+   
+    dx = np.min(geom.size/geom.cells)
+    x_new = np.mgrid[0:geom.cells[0]]*dx 
+    y_new = np.mgrid[0:geom.cells[1]]*dx 
+    z_new = np.mgrid[0:geom.cells[2]]*dx 
+
+    new_coords = np.stack(np.meshgrid(x_new,y_new,z_new,indexing='ij'),axis=-1).reshape((np.prod(geom.cells),3),order='F')
+
+    d = damask.Result(os.path.splitext(self.geom)[0] + '_' + os.path.splitext(self.load)[0] + '.hdf5')
+    phase_name = d.phases 
+    d.view('increments',f'inc{inc}')
+    orientations = d.read_dataset(d.get_dataset_location('O'))
+    ### grain rotation
+    grain_rotation = d.read_dataset(d.get_dataset_location('reorientation'))
+    if needs_hist:
+       grain_rotation = grain_rotation + self.grain_rotation_history(casipt_input,path_CA_stored)
+    eulers = Orientation(orientations).as_Euler_angles()
+    ### dislocation density
+    rho =  d.read_dataset(d.get_dataset_location('tot_density'))
+    ### subgrain sizes
+    r_s    =  d.read_dataset(d.get_dataset_location('r_s'))
+
+    #--------------
+    # make df
+    #---------------
+    
+    df = pd.DataFrame() 
+    # coords for new grids
+    Cell_coords = new_coords 
+    print(Cell_coords)
+    df['x'] = Cell_coords[:,0]
+    df['y'] = Cell_coords[:,1]
+    df['z'] = Cell_coords[:,2]
+    ## initial grain
+    df['grain'] = geom.material.T.flatten() #casipt starts counting from 1 I guess 
+    ## Rotation
+    df['Rotation'] = grain_rotation
+    # # total dislo
+    df['rho'] = rho
+    # # subgrain sizes 
+    df['r_s'] = r_s
+    # euler angles
+    df['phi1'] = eulers[:,0]
+    df['PHI'] = eulers[:,1]
+    df['phi2'] = eulers[:,2]
+
+    header_f = '%s %s\n'%(str(int(np.prod(geom.cells))),str(max(df['grain']))) #,str(max(df['grain']))
+    
+    file_rg = 'remesh_%s_%s_inc%s.txt'%(os.path.splitext(self.geom)[0],os.path.splitext(self.load)[0],inc)
+    if not os.path.exists(os.path.join('/nethome/v.shah',folder,'postProc')):
+        os.makedirs(os.path.join('/nethome/v.shah',folder,'postProc'))
+    
+    with open('postProc/'+file_rg,'w') as f:
+        f.write(header_f)
+        df.to_string(f,header=False,formatters=["{:.8f}".format,"{:.8f}".format,"{:.8f}".format, \
+                                                "{:.8f}".format,"{:.8f}".format,"{:.6E}".format, \
+                                                "{:.12f}".format,"{:.8f}".format,"{:.8f}".format, \
+                                                "{:.8f}".format],index=False)
+
+    return geom.cells[0],geom.cells[1],geom.cells[2],dx 
 
   def grain_rotation_history(self,casipt_input,path_CA_stored):
     """
