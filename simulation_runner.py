@@ -364,6 +364,34 @@ class Multi_stand_runner():
       time_step = 0.0
     return time_step
 
+  def enough_displacement(self):
+    """
+    Checks the displacement in the material. 
+    Returns True if displacement is more than the grid spacing.
+
+    Parameters
+    ----------
+    
+    """
+    os.chdir(self.simulation_folder)
+    d = damask.Result(self.job_file)
+    path = d.get_dataset_location('u_p')[-1]
+    u_p  = d.read_dataset([path])
+    max_displacement = np.max(np.linalg.norm(u_p,axis=1))
+    avg_displacement = np.average(np.linalg.norm(u_p,axis=1))
+    
+    fluct_displacement = np.abs(max_displacement - avg_displacement)
+
+    from damask import Grid
+    geom = Grid.load(self.geom_file)
+    grid_spacing = np.min(geom.size/geom.cells) 
+
+    if fluct_displacement > grid_spacing:
+      return True
+    else:
+      return False
+
+
   def get_min_resolution(self):
     """
     Get the minimum grid resolution. 
