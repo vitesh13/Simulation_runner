@@ -46,6 +46,7 @@ print(a.time_for_CA)
 if a.enough_displacement():
   print('regridding needed')
 
+<<<<<<< HEAD
   a.Initial_processing(a.job_file,a.simulation_folder)
   r = Remesh_for_CA(a.geom_file,a.load_file,int(restart_inc[-1].split('inc')[1]),os.getcwd())
   #r.main_all(r.geom,r.load,r.inc,r.folder)
@@ -105,6 +106,35 @@ else:
   copy(os.path.splitext(a.geom_file)[0] + '_regridded_{}.vtr'.format(restart_inc[-1]),a.simulation_folder)
   copy(a.config_file,a.simulation_folder)
   
+=======
+a.Initial_processing(a.job_file,a.simulation_folder)
+r = Remesh_for_CA(a.geom_file,a.load_file,int(restart_inc[-1].split('inc')[1]),os.getcwd())
+#r.main_all(r.geom,r.load,r.inc,r.folder)
+#nx,ny,nz = r.remesh_coords('postProc/{}_{}.txt'.format(os.path.splitext(a.job_file)[0],restart_inc[-1]),1.0,os.getcwd())
+nx,ny,nz,dx = r.output_without_regridding(r.geom,r.load,r.inc,r.folder)
+
+inherit_growth = 0
+a.modify_CA_setting(casipt_input,T,np.array([nx,ny,nz]),a.time_for_CA,np.min(dx),\
+                    inherit_growth,a.simulation_folder + '/postProc/remesh_{}_{}.txt'.format(os.path.splitext(a.job_file)[0],\
+                    restart_inc[-1]),\
+                    '/nethome/v.shah/casipt/dpca_sims/mdrx/{}/'.format('T_1273_sr10'))
+print(os.path.splitext(casipt_input))
+a.perform_CA(os.path.basename(casipt_input))
+path_CA_stored = a.copy_CA_output('/nethome/v.shah/casipt/dpca_sims/mdrx/{}'.format('T_1273_sr10'),a.sample_folder,r.inc,a.time_for_CA)
+
+new_geom = After_CA_restart.CASIPT_postprocessing(path_CA_stored).geomFromCA(np.min(dx))
+new_geom.save(path_CA_stored + '/' + os.path.splitext(a.geom_file)[0] + '_regridded_{}.vtr'.format(restart_inc[-1]))
+After_CA_restart.CASIPT_postprocessing(path_CA_stored).config_from_CA(a.simulation_folder)
+After_CA_restart.CASIPT_postprocessing(path_CA_stored).Initialize_Fp_no_regridding(\
+                 a.simulation_folder + '/' + a.restart_file,\
+                 restart_inc[-1],\
+                 a.simulation_folder + '/postProc/remesh_{}_{}.txt'.format(os.path.splitext(a.job_file)[0],restart_inc[-1]),\
+                 path_CA_stored + '/..ang',\
+                 path_CA_stored + '/._rho.txt')
+os.chdir(path_CA_stored)
+copy(os.path.splitext(a.geom_file)[0] + '_regridded_{}.vtr'.format(restart_inc[-1]),a.simulation_folder)
+copy(a.config_file,a.simulation_folder)
+>>>>>>> 14558df4b87ff1376f4a7ee0fdf17ad1bf5e54ac
 # -------------------------------------------------------------------------------------------------------------------------------
 # modifying total incs in the simulation (for testing)
 #os.chdir(a.simulation_folder)
@@ -131,10 +161,16 @@ while int(restart_inc[-1].split('inc')[1]) < total_incs:
   print('signal',signal)
   if signal == 134:
     break
+<<<<<<< HEAD
+=======
+  if a.enough_displacement():
+    print('regridding needed')
+>>>>>>> 14558df4b87ff1376f4a7ee0fdf17ad1bf5e54ac
   d = damask.Result(a.job_file)
   restart_inc.append(d.increments[-1])    #increment in form of 'inc200'
   print(restart_inc[-1])
   print(a.time_for_CA)
+<<<<<<< HEAD
   if a.enough_displacement():
     print('regridding needed')
     r = Remesh_for_CA(a.geom_file,a.load_file,int(restart_inc[-1].split('inc')[1]),os.getcwd())
@@ -214,3 +250,51 @@ while int(restart_inc[-1].split('inc')[1]) < total_incs:
     copy(os.path.splitext(a.geom_file)[0] + '_regridded_{}.vtr'.format(restart_inc[-1]),a.simulation_folder)
     copy(a.config_file,a.simulation_folder)
     
+=======
+#  a.modify_geom_attributes()
+#  a.modify_mapping()
+  r = Remesh_for_CA(a.geom_file,a.load_file,int(restart_inc[-1].split('inc')[1]),os.getcwd())
+  #r.regrid_Initial_ori_DRX(r.geom,r.load,restart_inc,r.folder)
+  #r.remesh_Initial_ori0('postProc/Initial_orientation_regridded_inc{}.txt'.format(r.inc),1.0,os.getcwd())
+  a.Initial_processing_DRX(a.job_file,a.simulation_folder,path_CA_stored + '/..ang')
+#  r.main_all(r.geom,r.load,r.inc,r.folder,needs_hist=True,\
+#             casipt_input=a.simulation_folder + '/postProc/remesh_{}_{}.txt'.format(os.path.splitext(a.job_file)[0],restart_inc[-2]),\
+#             path_CA_stored=path_CA_stored)
+#  nx,ny,nz = r.remesh_coords('postProc/{}_inc{}.txt'.format(os.path.splitext(a.job_file)[0],r.inc),1.0,os.getcwd())
+  nx,ny,nz,dx = r.output_without_regridding(r.geom,r.load,r.inc,r.folder,needs_hist=True,\
+                                            casipt_input=a.simulation_folder + '/postProc/remesh_{}_{}.txt'\
+                                            .format(os.path.splitext(a.job_file)[0],restart_inc[-2]),\
+                                            path_CA_stored = path_CA_stored)
+  
+#  r.regrid_growth_lengths(a.geom_file,a.load_file,restart_inc,r.folder,path_CA_stored) 
+  copy(path_CA_stored + '/.growth_lengths.txt',path_CA_stored + '/regridded_growth_lengths.txt')
+#  r.remesh_growth_lengths('postProc/{}_inc{}.txt'.format(os.path.splitext(a.job_file)[0],r.inc),1.0, \
+#                          a.simulation_folder,path_CA_stored)
+  copy(path_CA_stored + '/.growth_lengths.txt',path_CA_stored + '/remeshed_growth_lengths.txt')
+  inherit_growth = 1
+  print(casipt_input)
+  a.modify_CA_setting(casipt_input,T,np.array([nx,ny,nz]),a.time_for_CA,np.min(dx),\
+                      inherit_growth, a.simulation_folder + '/postProc/remesh_{}_{}.txt'\
+                      .format(os.path.splitext(a.job_file)[0],restart_inc[-1]),\
+                      '/nethome/v.shah/casipt/dpca_sims/mdrx/{}/'.format('T_1273_sr10'))
+  copy(path_CA_stored + '/regridded_growth_lengths.txt',growth_file_path + '/.growth_lengths.txt')
+  a.perform_CA(os.path.basename(casipt_input))
+#  path_CA_stored = a.copy_CA_output('/nethome/v.shah/casipt/dpca_sims/mdrx/{}'.format('T_1273_sr10'),a.sample_folder,r.inc,a.time_for_CA)
+#  
+#  new_geom = After_CA_restart.CASIPT_postprocessing(path_CA_stored).geomFromCA(np.min(r.new_size/r.new_grid))
+#  new_geom.save(path_CA_stored + '/' + os.path.splitext(a.geom_file)[0] + '_regridded_{}.vtr'.format(restart_inc[-1]))
+#  After_CA_restart.CASIPT_postprocessing(path_CA_stored).config_from_CA(a.simulation_folder)
+#  After_CA_restart.CASIPT_postprocessing(path_CA_stored).findNeighbours(\
+#                   a.simulation_folder + '/postProc/{}_{}.txt'.format(os.path.splitext(a.job_file)[0],restart_inc[-1]),\
+#                   a.simulation_folder + '/postProc/remesh_{}_{}.txt'.format(os.path.splitext(a.job_file)[0],restart_inc[-1]),\
+#                   a.simulation_folder + '/' + os.path.splitext(a.restart_file)[0] + '_regridded_{}.hdf5'.format(restart_inc[-1]))
+#  After_CA_restart.CASIPT_postprocessing(path_CA_stored).Initialize_Fp(\
+#                   a.simulation_folder + '/' + os.path.splitext(a.restart_file)[0] + '_regridded_{}_CA.hdf5'.format(restart_inc[-1]),\
+#                   path_CA_stored + '/.MDRX.txt',\
+#                   a.simulation_folder + '/postProc/remesh_{}_{}.txt'.format(os.path.splitext(a.job_file)[0],restart_inc[-1]),\
+#                   path_CA_stored + '/..ang',\
+#                   path_CA_stored + '/._rho.txt')
+#  os.chdir(path_CA_stored)
+#  copy(os.path.splitext(a.geom_file)[0] + '_regridded_{}.vtr'.format(restart_inc[-1]),a.simulation_folder)
+#  copy(a.config_file,a.simulation_folder)
+>>>>>>> 14558df4b87ff1376f4a7ee0fdf17ad1bf5e54ac
