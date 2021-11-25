@@ -494,7 +494,13 @@ class CASIPT_postprocessing():
       (Re,Ue) = mechanics._polar_decomposition(Fe_stored,['R','U'])   #Fe = Re,Ue          
       Fe_modified = np.matmul(Re_0,Ue)
 
-      Fp_stored_modified = tensor.transpose(np.matmul(np.linalg.inv(Fe_modified),F_stored))
+      Fp_stored_modified_T = np.matmul(np.linalg.inv(Fe_modified),F_stored)
+
+      # normalize Fp
+      for i in range(len(Fp_stored_modified_T)):
+        Fp_stored_modified_T[i] = Fp_stored_modified_T[i]/(np.linalg.det(Fp_stored_modified_T)**(1.0/3.0))      
+
+      Fp_stored_modified = tensor.transpose(Fp_stored_modified_T)
 
       data = hdf_file['/phase/{}/F_p'.format(phase_name)]
       data[...] = Fp_stored_modified
