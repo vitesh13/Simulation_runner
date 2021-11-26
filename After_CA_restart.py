@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 no BOM -*-
 
 import numpy as np
+import scipy
 import os
 from scipy import spatial
 import h5py
@@ -484,6 +485,28 @@ class CASIPT_postprocessing():
       for i in range(24):
         hdf_file['/phase/{}/omega'.format(phase_name)][:,i] = hdf_file['/phase/{}/omega'.format(phase_name)][:,i]*ratio # for BCC till 48, but for fcc till 24 only  
 
+      #Re_0 = tensor.transpose(Rotation.from_Euler_angles(ori_after_CA).as_matrix())  #convert euler angles to rotation matrix, O^T
+      # 
+      #F_stored = tensor.transpose(np.array(hdf_file['/phase/{}/F'.format(phase_name)]))  #taking transpose as hdf5 restart transposes while storing
+      #Fp_stored = tensor.transpose(np.array(hdf_file['/phase/{}/F_p'.format(phase_name)])) #taking transpose as hdf5 restart transposes while storing 
+      #Fp_inv = np.linalg.inv(Fp_stored) 
+      #Fe_stored = np.matmul(F_stored,Fp_inv)
+
+      #(Re,Ue) = mechanics._polar_decomposition(Fe_stored,['R','U'])   #Fe = Re,Ue          
+      #Fe_modified = np.matmul(Re_0,Ue)
+
+      #Fp_stored_modified_T = np.matmul(np.linalg.inv(Fe_modified),F_stored)
+
+      ## normalize Fp
+      #for i in range(len(Fp_stored_modified_T)):
+      #  Fp_stored_modified_T[i] = Fp_stored_modified_T[i]/(np.linalg.det(Fp_stored_modified_T[i])**(1.0/3.0))      
+
+      #Fp_stored_modified = tensor.transpose(Fp_stored_modified_T)
+
+      #data = hdf_file['/phase/{}/F_p'.format(phase_name)]
+      #data[...] = Fp_stored_modified
+      #hdf_file.close()
+
       Re_0 = tensor.transpose(Rotation.from_Euler_angles(ori_after_CA).as_matrix())  #convert euler angles to rotation matrix, O^T
        
       F_stored = tensor.transpose(np.array(hdf_file['/phase/{}/F'.format(phase_name)]))  #taking transpose as hdf5 restart transposes while storing
@@ -491,18 +514,42 @@ class CASIPT_postprocessing():
       Fp_inv = np.linalg.inv(Fp_stored) 
       Fe_stored = np.matmul(F_stored,Fp_inv)
 
-      (Re,Ue) = mechanics._polar_decomposition(Fe_stored,['R','U'])   #Fe = Re,Ue          
-      Fe_modified = np.matmul(Re_0,Ue)
+      C_avg = np.einsum('lij,ljk->ik', tensor.transpose(Fe_stored),Fe_stored)/len(Fe_stored)
+      B_avg = np.einsum('lij,ljk->ik', Fe_0, tensor.transpose(Fe_stored))/len(Fe_stored)
+      Ue_avg = scipy.linalg.sqrtm(C_avg)
+      Ve_avg = scipy.linalg.sqrtm(B_avg)
 
-      Fp_stored_modified_T = np.matmul(np.linalg.inv(Fe_modified),F_stored)
+      (Re,Ve) = mechanics._polar_decomposition(Fe_stored,['R','V'])   #Fe = Ve,Re          
 
-      # normalize Fp
-      for i in range(len(Fp_stored_modified_T)):
-        Fp_stored_modified_T[i] = Fp_stored_modified_T[i]/(np.linalg.det(Fp_stored_modified_T)**(1.0/3.0))      
+      Fp_stored_modified = Re_0 
 
-      Fp_stored_modified = tensor.transpose(Fp_stored_modified_T)
-
+      # F_p = Re (while init it will become F_p = Re^T
       data = hdf_file['/phase/{}/F_p'.format(phase_name)]
       data[...] = Fp_stored_modified
+
+      # make F = Ve^T (while init it will become V_e)
+      data = hdf_file['/phase/{}/F'.format(phase_name)]
+      data[...] = tensor.transpose(Ve)
+
+      # making stress 0
+      data = hdf_file['/phase/{}/S'.format(phase_name)]
+      data[...] = np.zeros(data.shape)
+
+      # make F and F_lastInc also Ve^T
+      data = hdf_file['/solver/F']
+      shape2write = data.shape
+      data[...] = np.reshape(tensor.transpose(Ve),shape2write)
+      
+      data = hdf_file['/solver/F_lastInc']
+      shape2write = data.shape
+      data[...] = np.reshape(tensor.transpose(Ve),shape2write)
+
+      # make F_aim and F_aim_lastInc as Ve_avg
+      data = hdf_file['/solver/F_aim_lastInc']
+      data[...] = Ve_avg
+
+      data = hdf_file['/solver/F_aim']
+      data[...] = Ve_avg
+
       hdf_file.close()
 
