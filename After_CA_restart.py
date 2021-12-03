@@ -357,12 +357,15 @@ class CASIPT_postprocessing():
     orientation_data = cell_orientation_array.astype(np.float32)
     o[cell_data_label + '/Eulers'] = orientation_data.reshape(tuple(np.flip(grid_size))+(3,))
 
+    # Data eulers
+    o[cell_data_label + '/GrainIDs'] = grain_ID_cell_array.reshape(tuple(np.flip(grid_size))+(1,))
+
     # Attributes to CellData group
     o[cell_data_label].attrs['AttributeMatrixType'] = np.array([3],np.uint32)
     o[cell_data_label].attrs['TupleDimensions']     = np.array(grid_size,np.uint64)
 
     # Common Attributes for groups in CellData
-    for group in ['/Phases','/Eulers']:
+    for group in ['/Phases','/Eulers','/GrainIDs']:
       o[cell_data_label + group].attrs['DataArrayVersion']      = np.array([2],np.int32)
       o[cell_data_label + group].attrs['Tuple Axis Dimensions'] = 'x={},y={},z={}'.format(*np.array(grid_size))
     
@@ -371,6 +374,11 @@ class CASIPT_postprocessing():
     o[cell_data_label + '/Phases'].attrs['ObjectType']          = 'DataArray<int32_t>'
     o[cell_data_label + '/Phases'].attrs['TupleDimensions']     = np.array(grid_size,np.uint64)
     
+    # phase attributes
+    o[cell_data_label + '/GrainIDs'].attrs['ComponentDimensions'] = np.array([1],np.uint64)
+    o[cell_data_label + '/GrainIDs'].attrs['ObjectType']          = 'DataArray<int32_t>'
+    o[cell_data_label + '/GrainIDs'].attrs['TupleDimensions']     = np.array(grid_size,np.uint64)
+
     # Eulers attributes
     o[cell_data_label + '/Eulers'].attrs['ComponentDimensions'] = np.array([3],np.uint64)
     o[cell_data_label + '/Eulers'].attrs['ObjectType']          = 'DataArray<float>'        
