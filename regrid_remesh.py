@@ -165,8 +165,8 @@ class Remesh_for_CA():
     
     output = rg.h5OutputName_0 
     file_rg = '%s_inc%s.txt'%(output,inc)
-    if not os.path.exists(os.path.join('/nethome/v.shah',folder,'postProc')):
-        os.makedirs(os.path.join('/nethome/v.shah',folder,'postProc'))
+    if not os.path.exists(os.path.join(folder,'postProc')):
+        os.makedirs(os.path.join(folder,'postProc'))
     
     with open('postProc/'+file_rg,'w') as f:
         f.write(header_f)
