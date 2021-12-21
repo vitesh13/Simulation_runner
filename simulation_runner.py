@@ -813,7 +813,7 @@ class Multi_stand_runner():
     f.create_dataset('mapping/homogenization',dtype=comp_type_homog,shape=(new_len,1),data=homog_array)
     
 
-  def perform_CA(self,input_settings):
+  def perform_CA(self,input_settings,casipt_folder=''):
     """
     Starts a CA simulation.
  
@@ -821,9 +821,14 @@ class Multi_stand_runner():
     ----------
     input_settings : str
       Name of the input xml file for CA
+    casipt_folder: str
+      Path for the compiled version of casipt
     """
    
-    os.chdir('/nethome/v.shah/casipt/casipt_dens/casipt')
+    if casipt_folder = '':
+      os.chdir('/nethome/v.shah/casipt/casipt_dens/casipt')
+    else:
+      os.chdir(casipt_folder)
     subprocess.run(shlex.split('bin/casipt input/{}'.format(input_settings)))  
 
 
