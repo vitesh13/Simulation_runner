@@ -822,7 +822,8 @@ class Multi_stand_runner():
     input_settings : str
       Name of the input xml file for CA
     casipt_folder: str
-      Path for the compiled version of casipt
+      Path for the compiled version of casipt.
+      Default is None, which might give errors to other users.
     """
    
     if casipt_folder == '':
