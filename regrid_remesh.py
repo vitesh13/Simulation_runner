@@ -381,6 +381,72 @@ class Remesh_for_CA():
     np.savetxt(new_path,new_data,fmt = ' '.join(['%.10e']*3 + ['%i'] + ['%.10e']*6), \
                header='{} {}'.format(str(len(new_data)),str(int(np.max(data[:,3])))),comments='')
 
+    return nx,ny,nz
+      
+  def remesh_coords_2D(self,filename,unit,folder):
+    """
+    Remeshes the data to equidistant grid.
+    This is a special function for 2D grid.
+    This function needs the geometry defined in X-Z plane.
+    X-Z plane is preferable for DAMASK as it can be parallelized, however, it is not good for CASIPT.
+    CASIPT needs z plane as 1 to perform a 2D simulation. 
+    This function basically maps the X-Z plane to X-Y for CASIPT.
+    
+    Parameters
+    ----------
+    filename : str 
+      file path
+    unit : float
+      Our units in comparison to DAMASK
+    folder : str
+      simulation folder
+    """ 
+    os.chdir('{}'.format(folder))
+    dx = np.min(self.new_size/self.new_grid)#*1E-06
+    print(dx)
+    unit_scale = unit
+    
+    is2d = 0 # 1 for 2D data
+    
+    data = np.loadtxt(filename,skiprows=1)
+    min_x = unit_scale*np.min(data[:,0])
+    min_y = unit_scale*np.min(data[:,1])
+    min_z = unit_scale*np.min(data[:,2])
+
+    #shift coords to start from 0
+    data[:,0] = unit_scale*data[:,0] - min_x
+    data[:,1] = unit_scale*data[:,1] - min_y
+    data[:,2] = unit_scale*data[:,2] - min_z
+    
+    nx = int(round(np.max(data[:,0])/dx))
+    ny = int(round(np.max(data[:,1])/dx))
+    nz = int(round(np.max(data[:,2])/dx))
+    print('Nx:',nx)
+    print('Ny:',ny)
+    print('Nz:',nz)
+    
+    x_new = np.mgrid[0:nx+1]*dx 
+    y_new = np.mgrid[0:ny+1]*dx 
+    z_new = np.mgrid[0:nz+1]*dx 
+    
+    #new_coords = np.vstack(np.meshgrid(x_new,y_new,z_new)).reshape(3,-1).T
+    #new_coords = np.vstack(np.meshgrid(y_new,z_new,x_new)).reshape(3,-1).T
+    #new_coords = np.vstack(np.meshgrid(z_new,y_new,x_new)).reshape(3,-1).T
+    new_coords = np.stack(np.meshgrid(x_new,z_new,y_new,indexing='ij'),axis=-1).reshape(((nx+1)*(ny+1)*(nz+1),3),order='F')
+    
+    data[:,[1,2]] = data[:,[2,1]]      # mapping from X-Z plane to X-Y
+    
+    new_data = np.zeros((len(new_coords),10))
+    new_data[:,0:3] = new_coords
+    
+    new_data[:,3:10] = griddata(data[:,0:3],data[:,3:10],new_data[:,0:3],method='nearest')
+    
+    new_filename = 'remesh_' + os.path.basename(filename)
+    dir_file     = os.path.dirname(os.path.abspath(filename))
+    new_path     = os.path.join(dir_file,new_filename)
+    np.savetxt(new_path,new_data,fmt = ' '.join(['%.10e']*3 + ['%i'] + ['%.10e']*6), \
+               header='{} {}'.format(str(len(new_data)),str(int(np.max(data[:,3])))),comments='')
+
     # extra for remeshing original orientation
     #data_for_ori = np.loadtxt('postProc/Initial_orientation_regridded_inc{}.txt'.format(\
     #                          os.path.basename(os.path.splitext(filename)[0]).split('inc')[1]),usecols=(3,4,5,6))
@@ -393,8 +459,9 @@ class Remesh_for_CA():
     #           os.path.basename(os.path.splitext(filename)[0]).split('inc')[1]),\
     #           new_data_for_ori)#,fmt = ' '.join(['%.10e']*3  + ['%.10f']*4))
 
-    return nx,ny,nz
-      
+    # as we map from X-Z to X-Y the returning values should change
+    return nx,nz,ny 
+
   def regrid_Initial_ori0(self,geom,load,inc,folder):
     """
     regrid the initial orientation for restart after the first trigger.
