@@ -441,7 +441,7 @@ class Remesh_for_CA():
     
     new_data[:,3:10] = griddata(data[:,0:3],data[:,3:10],new_data[:,0:3],method='nearest')
     
-    new_filename = 'remesh_' + os.path.basename(filename)
+    new_filename = 'remesh_2D_' + os.path.basename(filename)
     dir_file     = os.path.dirname(os.path.abspath(filename))
     new_path     = os.path.join(dir_file,new_filename)
     np.savetxt(new_path,new_data,fmt = ' '.join(['%.10e']*3 + ['%i'] + ['%.10e']*6), \
