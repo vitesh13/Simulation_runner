@@ -364,6 +364,75 @@ class Multi_stand_runner():
       time_step = 0.0
     return time_step
 
+  def enough_displacement(self):
+    """
+    Checks the displacement in the material. 
+    Returns True if displacement is more than the grid spacing.
+
+    Parameters
+    ----------
+    
+    """
+    os.chdir(self.simulation_folder)
+    d = damask.Result(self.job_file)
+    path = d.get_dataset_location('u_p')[-1]
+    u_p  = d.read_dataset([path])
+    max_displacement = np.max(np.linalg.norm(u_p,axis=1))
+    avg_displacement = np.average(np.linalg.norm(u_p,axis=1))
+    
+    fluct_displacement = np.abs(max_displacement - avg_displacement)
+    print('fluctuating displacement',fluct_displacement)
+
+    from damask import Grid
+    geom = Grid.load(self.geom_file)
+    grid_spacing = np.min(geom.size/geom.cells) 
+    print('grid spacing',grid_spacing)
+
+    if fluct_displacement > grid_spacing:
+      return True
+    else:
+      return False
+
+  def add_equilibrium_step(self,index,inc,dot_F_list,P_list):
+    """
+    Adds an equilibrium step after a CASIPT without regridding step.
+    As such a step doesnt completely adjust the stretch tensor, 
+    longer equilibrium  steps are needed. 
+    Currently works only with loading in z direction.
+    For more control over the loading conditions, need to write a separate function. 
+
+    Parameters
+    ----------
+    index : int
+      Position of the index that should be modified for deformation gradient. 
+    inc : int
+      Increment from which restart is done.
+    dot_F_list : list
+      List of strings and int for dot_F.
+    P_list : list
+      List of strings and int for P.
+    """
+    from damask import Config
+    os.chdir(self.simulation_folder)
+    loading = Config.load(self.load_file)
+    if len(loading['loadstep']) == 1:
+      loading['loadstep'].insert(0,{'boundary_conditions':{'mechanical':\
+                                  {'dot_F':dot_F_list,\
+                                   'P': P_list}},\
+                                   'discretization':{'t':1E-02,'N':inc+20},\
+                                   'f_out':1,\
+                                   'f_restart':20 })
+    else:
+      loading['loadstep'][0]['boundary_conditions']['mechanical']['dot_F'][index] = -1e-06
+      loading['loadstep'][0]['discretization']['t'] = 1E-02
+      loading['loadstep'][0]['discretization']['N'] = inc+20
+      
+      loading['loadstep'][1]['discretization']['t'] -= self.time_for_CA 
+      loading['loadstep'][1]['discretization']['N'] -= inc  
+
+    loading.save(self.load_file)
+
+
   def get_min_resolution(self):
     """
     Get the minimum grid resolution. 

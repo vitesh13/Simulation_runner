@@ -2,14 +2,17 @@
 # -*- coding: UTF-8 no BOM -*-
 
 import numpy as np
+import scipy
 import os
 from scipy import spatial
 import h5py
+from shutil import copy,move
 from damask import Grid
 from damask import ConfigMaterial as cm
 from damask import Rotation
 from damask import Orientation
 from damask import tensor
+from damask import mechanics
 
 #--------------------------------------------------------------------------
 Crystal_structures = {'fcc': 1,
@@ -518,6 +521,11 @@ class CASIPT_postprocessing():
       """
       Modifies the orientation and deformation gradients in the transformed parts.
 
+      Re_0 = O^T
+      F_p  = Re_0 = O^T
+      originally F_p should be O, however, as hdf5 restart stores the arrays in transposed form, 
+      we can F_p = O^T
+
       Parameters
       ----------
       restart_file_CA : str
@@ -545,27 +553,117 @@ class CASIPT_postprocessing():
         hdf_file['/phase/{}/omega'.format(phase_name)][:,i] = hdf_file['/phase/{}/omega'.format(phase_name)][:,i]*ratio # for BCC till 48, but for fcc till 24 only  
 
       Re_0 = tensor.transpose(Rotation.from_Euler_angles(ori_after_CA).as_matrix())  #convert euler angles to rotation matrix
+
        
       data = hdf_file['/phase/{}/F_p'.format(phase_name)]
       data[...] = Re_0
       hdf_file.close()
-      #hdf_file['/phase/{}/F_p'.format(phase_name)] = Re_0
-      #for i in data:
-      #  hdf_file['/constituent/1_omega_plastic'][i[0],0:24] = 5E11 # for BCC till 48, but for fcc till 24 only  
-      #  Fp = np.array(hdf_file['Fp'][i[0]]).reshape((3,3))
-      #  F  = np.array(hdf_file['F'][i[0]]).reshape((3,3))
-      #  Fe = findFe_initial(F.T,Fp.T) # because restart file stores deformation gradients as transposed form 
-      #  d = Decompose(Fe)
-      #  R = d.math_rotationalPart33(Fe)  #rotational part of Fe = RU
-      #  orig_eulers = om2eu(R.transpose())   #in radians O_m = R.transpose()
-      #  stretch = np.matmul(np.linalg.inv(R),Fe)
-      #  eulers = i[2:5]  
-      #  eulers = eulers*math.pi/180.0 #degrees to radians
-      #  rotation_new = eulers_toR(eulers) #you get rotation matrix R from this function 
-      #  Fe_new       = np.matmul(rotation_new,stretch)
-      #  Fp_new       = np.matmul(F,np.linalg.inv(Fe_new))
-      #  Fp_new       = Fp_new.T           # because restart file stores deformation gradients as transposed form
-      #  hdf_file['Fp'][i[0]] = Fp_new.reshape((1,1,3,3))
 
         
+  def Initialize_Fp_no_regridding(self,restart_file,inc,remesh_file,ang_file,rho_file):
+      """
+      Modifies the orientation and deformation gradients in the transformed parts.
+      This function is for the case when there is no regridding done before CASIPT.
+
+      Parameters
+      ----------
+      restart_file : str
+        Path of the restart hdf5 file
+      inc : str
+        Increment at which restart is done.
+      remesh_file : str
+        Path of the remesh file.
+      ang_file : str
+        Path of the ang file from CASIPT.
+      rho_file : str
+        Path of the rho file from CASIPT.
+      """
+      ori_after_CA = np.loadtxt(ang_file)
+      rho_CA       = np.loadtxt(rho_file)
+
+      print(os.path.splitext(os.path.basename(restart_file))[0] + '_regridded_{}_CA.hdf5'.format(inc))
+      copy(restart_file,os.path.dirname(restart_file) + '/' + \
+           os.path.splitext(os.path.basename(restart_file))[0] + '_regridded_{}_CA.hdf5'.format(inc)) 
+      hdf_file = h5py.File(os.path.dirname(restart_file) + '/' + \
+                           os.path.splitext(os.path.basename(restart_file))[0] + '_regridded_{}_CA.hdf5'.format(inc),'a')
+
+      orig_rho = np.loadtxt(remesh_file,skiprows=1,usecols=((5))) 
+      ratio = rho_CA/orig_rho
+      phase_name = [i for i in hdf_file['phase'].keys()][0]
+
+      for i in range(24):
+        hdf_file['/phase/{}/omega'.format(phase_name)][:,i] = hdf_file['/phase/{}/omega'.format(phase_name)][:,i]*ratio # for BCC till 48, but for fcc till 24 only  
+
+      Re_0 = tensor.transpose(Rotation.from_Euler_angles(ori_after_CA).as_matrix())  #convert euler angles to rotation matrix, O^T
+       
+      F_stored = tensor.transpose(np.array(hdf_file['/phase/{}/F'.format(phase_name)]))  #taking transpose as hdf5 restart transposes while storing
+      Fp_stored = tensor.transpose(np.array(hdf_file['/phase/{}/F_p'.format(phase_name)])) #taking transpose as hdf5 restart transposes while storing 
+      Fp_inv = np.linalg.inv(Fp_stored) 
+      Fe_stored = np.matmul(F_stored,Fp_inv)
+
+      (Re,Ue) = mechanics._polar_decomposition(Fe_stored,['R','U'])   #Fe = Re,Ue          
+      Fe_modified = np.matmul(Re_0,Ue)
+
+      Fp_stored_modified_T = np.matmul(np.linalg.inv(Fe_modified),F_stored)
+
+      # normalize Fp
+      for i in range(len(Fp_stored_modified_T)):
+        Fp_stored_modified_T[i] = Fp_stored_modified_T[i]/(np.linalg.det(Fp_stored_modified_T[i])**(1.0/3.0))      
+
+      Fp_stored_modified = tensor.transpose(Fp_stored_modified_T)
+
+      data = hdf_file['/phase/{}/F_p'.format(phase_name)]
+      data[...] = Fp_stored_modified
+
+      # making stress 0
+      data = hdf_file['/phase/{}/S'.format(phase_name)]
+      data[...] = np.zeros(data.shape)
+
+      hdf_file.close()
+
+      #Re_0 = tensor.transpose(Rotation.from_Euler_angles(ori_after_CA).as_matrix())  #convert euler angles to rotation matrix, O^T
+      # 
+      #F_stored = tensor.transpose(np.array(hdf_file['/phase/{}/F'.format(phase_name)]))  #taking transpose as hdf5 restart transposes while storing
+      #Fp_stored = tensor.transpose(np.array(hdf_file['/phase/{}/F_p'.format(phase_name)])) #taking transpose as hdf5 restart transposes while storing 
+      #Fp_inv = np.linalg.inv(Fp_stored) 
+      #Fe_stored = np.matmul(F_stored,Fp_inv)
+
+      #C_avg = np.einsum('lij,ljk->ik', tensor.transpose(Fe_stored),Fe_stored)/len(Fe_stored)
+      #B_avg = np.einsum('lij,ljk->ik', Fe_stored, tensor.transpose(Fe_stored))/len(Fe_stored)
+      #Ue_avg = scipy.linalg.sqrtm(C_avg)
+      #Ve_avg = scipy.linalg.sqrtm(B_avg)
+
+      #(Re,Ve) = mechanics._polar_decomposition(Fe_stored,['R','V'])   #Fe = Ve,Re          
+
+      #Fp_stored_modified = Re_0 
+
+      ## F_p = Re (while init it will become F_p = Re^T
+      #data = hdf_file['/phase/{}/F_p'.format(phase_name)]
+      #data[...] = Fp_stored_modified
+
+      ## make F = Ve^T (while init it will become V_e)
+      #data = hdf_file['/phase/{}/F'.format(phase_name)]
+      #data[...] = tensor.transpose(Ve)
+
+      ## making stress 0
+      #data = hdf_file['/phase/{}/S'.format(phase_name)]
+      #data[...] = np.zeros(data.shape)
+
+      ## make F and F_lastInc also Ve^T
+      #data = hdf_file['/solver/F']
+      #shape2write = data.shape
+      #data[...] = np.reshape(tensor.transpose(Ve),shape2write)
+      #
+      #data = hdf_file['/solver/F_lastInc']
+      #shape2write = data.shape
+      #data[...] = np.reshape(tensor.transpose(Ve),shape2write)
+
+      ## make F_aim and F_aim_lastInc as Ve_avg
+      #data = hdf_file['/solver/F_aim_lastInc']
+      #data[...] = Ve_avg
+
+      #data = hdf_file['/solver/F_aim']
+      #data[...] = Ve_avg
+
+      #hdf_file.close()
 
