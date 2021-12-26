@@ -831,7 +831,7 @@ class Multi_stand_runner():
     root.find('ny').text = str(grid[1])
     root.find('nz').text = str(grid[2])
     root.find('deltats').text = '{:.8f}'.format(delta_t)
-    root.find('dx').text = '{:.8f}'.format(dx)
+    root.find('dx').text = '{:.12f}'.format(dx)
     root.find('startfile_fn').text = start_file
     root.find('basefn').text = basefn
     root.find('growthfile_fn').text = basefn + '.growth_lengths.txt'
