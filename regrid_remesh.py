@@ -524,6 +524,71 @@ class Remesh_for_CA():
     # as we map from X-Z to X-Y the returning values should change
     return nx,nz,ny 
 
+#  def regrid_Initial_ori0(self,geom,load,inc,folder):
+#    """
+#    regrid the initial orientation for restart after the first trigger.
+#
+#    Parameters
+#    ----------
+#    geom : str
+#      Name of the geom file
+#    load : str
+#      Name of the load file
+#    inc : int
+#      Increment for which regridding is being done
+#    folder : str
+#      Path to the folder
+#    """ 
+#
+#    isElastic = False
+#    scale = 1.0
+#    grid = False 
+#    os.chdir(folder)
+#
+#    rg = geom_regridder(geom,load,increment=inc)
+#    rg.regrid_geom()
+#  
+#    self.new_size = rg.sizeRVE_regrid
+#    self.new_grid = rg.gridSeeds_regrid
+#   
+#    # Building the new coordinates
+#    elem0 = int(rg.gridSeeds_0.prod())
+#    elem_rg = int(rg.gridSeeds_regrid.prod())
+#    
+#    New_RVE_size = rg.sizeRVE_regrid
+#    new_grid_cell = rg.gridSeeds_regrid
+#    origin0 = rg.originRVE_0
+#    Cell_coords = rg.gridCoords_cell_regrid   #or it should be after the periodic shift??
+#    print(Cell_coords.shape)
+#
+#    ##------------------------------------------
+#    ## reading main inputs for processing
+#    #out5 = output_reader(hdf5_name)
+#    #inc, inc_key = out5.make_incerement(inc)
+#    ## reading main inputs
+#    d = damask.Result(rg.h5OutputName_0 + '.hdf5')
+#    phase_name = d.phases 
+#
+#    #--------------------------------
+#    # make df for initial orientation
+#    #--------------------------------
+#    df_init = pd.DataFrame()
+#    df_init['x'] = Cell_coords[:,0]
+#    df_init['y'] = Cell_coords[:,1]
+#    df_init['z'] = Cell_coords[:,2]
+#
+#    # open the dataset from initial increment
+#    with h5py.File(rg.h5OutputName_0 + '.hdf5') as f:
+#      orientation_0 = np.array(f['/inc0/phase/{}/mechanics/O'.format(phase_name[0])]) 
+#    orientation_0_rg = orientation_0[rg.get_nearestNeighbors()]
+#    df_init['q0'] = orientation_0_rg[:,0] 
+#    df_init['q1'] = orientation_0_rg[:,1] 
+#    df_init['q2'] = orientation_0_rg[:,2] 
+#    df_init['q3'] = orientation_0_rg[:,3] 
+#    
+#    #df_init.to_csv('postProc/Initial_orientation_regridded_inc{}'.format(inc),index=False,header=False)
+#    np.savetxt('postProc/Initial_orientation_regridded_inc{}.txt'.format(inc),df_init.values)
+  
   def regrid_Initial_ori0(self,geom,load,inc,folder):
     """
     regrid the initial orientation for restart after the first trigger.
@@ -573,22 +638,21 @@ class Remesh_for_CA():
     # make df for initial orientation
     #--------------------------------
     df_init = pd.DataFrame()
-    df_init['x'] = Cell_coords[:,0]
-    df_init['y'] = Cell_coords[:,1]
-    df_init['z'] = Cell_coords[:,2]
 
     # open the dataset from initial increment
     with h5py.File(rg.h5OutputName_0 + '.hdf5') as f:
       orientation_0 = np.array(f['/inc0/phase/{}/mechanics/O'.format(phase_name[0])]) 
     orientation_0_rg = orientation_0[rg.get_nearestNeighbors()]
-    df_init['q0'] = orientation_0_rg[:,0] 
-    df_init['q1'] = orientation_0_rg[:,1] 
-    df_init['q2'] = orientation_0_rg[:,2] 
-    df_init['q3'] = orientation_0_rg[:,3] 
+    orientation_0_rg = Orientation(Rotation.from_quaternion(orientation_0_rg))
+    orientation_0_rg_eul = Rotation.as_Euler_angles(orientation_0_rg)
+    
+    df_init['phi1'] = orientation_0_rg_eul[:,0] 
+    df_init['phi'] = orientation_0_rg_eul[:,1] 
+    df_init['phi2'] = orientation_0_rg_eul[:,2] 
     
     #df_init.to_csv('postProc/Initial_orientation_regridded_inc{}'.format(inc),index=False,header=False)
     np.savetxt('postProc/Initial_orientation_regridded_inc{}.txt'.format(inc),df_init.values)
-  
+
   def regrid_Initial_ori_DRX(self,geom,load,inc,folder):
     """
     regrid the initial orientation for restart during DRX run.
