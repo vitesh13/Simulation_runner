@@ -764,7 +764,7 @@ class Multi_stand_runner():
     d.add_calculation('r_s',"30/np.sqrt(#tot_density#)")
 
 # initial processing
-  def Initial_processing_DRX(self,job_file,simulation_folder,casipt_folder):
+  def Initial_processing_DRX(self,job_file,simulation_folder,inc):
     """
     Initial post processing required for DRX simulations.
     Needs the remeshed original orientation data to calculate reorientation.
@@ -775,7 +775,7 @@ class Multi_stand_runner():
       Name of the damask output file to be processed.
     simulation_folder : str
       Name of the simulation folder where the job file exists.
-    casipt_folder: str
+    inc: str
       Path of the ..ang file that contains the orientations in form of euler angles.
 
     """
@@ -784,8 +784,8 @@ class Multi_stand_runner():
     from damask import Rotation
     os.chdir(simulation_folder)
     d = damask.Result(job_file)
-    #orientation0 = np.loadtxt(simulation_folder + '/postProc/remesh_Initial_orientation_{}.txt'.format(inc),usecols=(3,4,5,6))
-    orientation0 = np.loadtxt(casipt_folder)
+    orientation0 = np.loadtxt(simulation_folder + '/postProc/remesh_Initial_orientation_inc{}.txt'.format(inc))
+    #orientation0 = np.loadtxt(casipt_folder)
     orientation0 = Orientation(Rotation.from_Euler_angles(orientation0))
     d.add_grainrotation(orientation0,degrees=True,with_axis=False,without_rigid_rotation=True)
     #d.add_Eulers('orientation')
@@ -834,9 +834,9 @@ class Multi_stand_runner():
     root.find('dx').text = '{:.12f}'.format(dx)
     root.find('startfile_fn').text = start_file
     root.find('basefn').text = basefn
-    root.find('growthfile_fn').text = basefn + '.growth_lengths.txt'
+    #root.find('growthfile_fn').text = basefn + '.growth_lengths.txt'
     root.find('mvInitialDislocationDensity').text = str(rho_mob_0 + rho_dip_0)
-    root.find('mvUseGrowthLengths').text = str(inherit_growth)
+    #root.find('mvUseGrowthLengths').text = str(inherit_growth)
     tree.write(filename)
     
   def modify_geom_attributes(self):
